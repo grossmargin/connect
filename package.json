@@ -1,0 +1,13 @@
+{
+  "name": "grossmargin-connect",
+  "private": true,
+  "workspaces": ["apps/*"],
+  "scripts": {
+    "dev": "bun --filter web dev",
+    "build": "bun --filter web build",
+    "start": "bun --filter web start",
+    "db:generate": "bun --filter web db:generate",
+    "db:push": "bun --filter web db:push",
+    "db:migrate": "bun --filter web db:migrate"
+  }
+}

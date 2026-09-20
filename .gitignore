@@ -1,0 +1,14 @@
+node_modules
+.next
+.env
+.env*.local
+*.log
+.DS_Store
+/apps/web/prisma/*.db
+.drafts
+
+*.tsbuildinfo
+
+# Editors / tooling
+.idea
+.playwright-mcp

@@ -1,0 +1,406 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Auth.js (NextAuth) ----------
+
+model User {
+  id            String    @id @default(uuid()) @db.Uuid
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+
+  accounts    Account[]
+  sessions    Session[]
+  memberships TeamMembership[]
+}
+
+model Account {
+  id                String  @id @default(uuid()) @db.Uuid
+  userId            String  @db.Uuid
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(uuid()) @db.Uuid
+  sessionToken String   @unique
+  userId       String   @db.Uuid
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---------- Domain ----------
+
+model Team {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  createdAt DateTime @default(now())
+
+  memberships     TeamMembership[]
+  vaults          Vault[]
+  serviceAccounts ServiceAccount[]
+  mcpConnections  McpConnection[]
+  mcpToolsets     McpToolset[]
+  mcpWrappers     McpWrapper[]
+  kvEntries       KeyValueStore[]
+}
+
+// Generic, untyped store for cache and transient state (namespaced per team).
+// `value` shape is decided by the caller; nothing here is validated.
+model KeyValueStore {
+  id        String    @id @default(uuid()) @db.Uuid
+  teamId    String    @db.Uuid
+  namespace String
+  key       String
+  value     Json      @db.JsonB
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, namespace, key])
+  @@index([teamId, namespace])
+  @@index([namespace, key])
+}
+
+model TeamMembership {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  teamId    String   @db.Uuid
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, teamId])
+}
+
+model Vault {
+  id          String   @id @default(uuid()) @db.Uuid
+  teamId      String   @db.Uuid
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  team        Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  credentials Credential[]
+
+  @@index([teamId])
+}
+
+model Credential {
+  id          String         @id @default(uuid()) @db.Uuid
+  vaultId     String         @db.Uuid
+  name        String
+  description String?
+  // SINGLELINE | MULTILINE | NANGO (dynamic: no stored secret; value fetched
+  // from Nango at read time via `credentialRef` — see lib/nango.ts).
+  type        String         @default("SINGLELINE")
+  // Packed AES-256-GCM envelope: keyId + iv + authTag + ciphertext. Decrypts to JSON.
+  // Null for dynamic types (NANGO), which store no secret at rest.
+  content     Bytes?
+  // Dynamic-source pointer. NANGO: { connectionId, providerConfigKey }.
+  credentialRef Json?        @db.JsonB
+  encVersion  Int            @default(1)
+  createdById String?        @db.Uuid
+  updatedById String?        @db.Uuid
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  vault    Vault        @relation(fields: [vaultId], references: [id], onDelete: Cascade)
+  wrappers McpWrapper[] @relation("McpWrapperCredentials")
+
+  @@index([vaultId])
+}
+
+model ServiceAccount {
+  id          String   @id @default(uuid()) @db.Uuid
+  teamId      String   @db.Uuid
+  // Reserved for future vault-scoped service accounts. Null = team scope.
+  vaultId     String?  @db.Uuid
+  name        String
+  createdById String?  @db.Uuid
+  createdAt   DateTime @default(now())
+
+  team Team                @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  keys ServiceAccountKey[]
+
+  @@index([teamId])
+}
+
+model ServiceAccountKey {
+  id               String    @id @default(uuid()) @db.Uuid
+  serviceAccountId String    @db.Uuid
+  // sha256 of the raw token (sa_...). The raw token is shown once at creation.
+  hash             String    @unique
+  prefix           String
+  createdAt        DateTime  @default(now())
+  lastUsedAt       DateTime?
+  revokedAt        DateTime?
+
+  serviceAccount ServiceAccount @relation(fields: [serviceAccountId], references: [id], onDelete: Cascade)
+
+  @@index([serviceAccountId])
+}
+
+// A connection to a third-party MCP server. We act as an OAuth client:
+// DCR registers us at the server's authorization server; the auth-code flow
+// yields tokens used to call the server (e.g. tools/list).
+model McpConnection {
+  id     String @id @default(uuid()) @db.Uuid
+  teamId String @db.Uuid
+  name   String
+  // User-facing id, unique per team. Letters, digits, underscore only.
+  slug   String
+  url    String
+
+  // How we authenticate to the server. See MCP_AUTH_TYPES in lib/mcpCredentials.ts.
+  //   DCR     - Dynamic Client Registration + OAuth authorization-code flow
+  //   HEADERS - static HTTP headers (e.g. Authorization: Bearer <PAT>)
+  authType String @default("DCR")
+  // PENDING (created, no creds) | REGISTERED (creds ready, not authorized) |
+  // CONNECTED (usable) | ERROR
+  status   String @default("PENDING")
+  // Encrypted JSON. Decrypts to a McpCredentials value whose shape depends on
+  // authType (validated with Zod). See lib/mcpCredentials.ts.
+  encryptedCredentials Bytes?
+
+  lastError       String?
+  lastConnectedAt DateTime?
+  lastTestedAt    DateTime?
+  createdById     String?   @db.Uuid
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  team     Team                @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  toolsets McpToolset[]        @relation("McpToolsetConnections")
+  testLogs ConnectionTestLog[]
+
+  @@unique([teamId, slug])
+  @@index([teamId])
+}
+
+// One row per connection test. `details` is free-form: as much as we can capture
+// (url, tools, instructions preview, timings, error, refresh info, ...).
+model ConnectionTestLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  teamId       String   @db.Uuid
+  connectionId String?  @db.Uuid
+  ok           Boolean
+  details      Json     @db.JsonB
+  createdAt    DateTime @default(now())
+
+  connection McpConnection? @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+
+  @@index([connectionId, createdAt])
+  @@index([teamId, createdAt])
+}
+
+// A named group of MCP connections. Aggregated and served together as one
+// toolset to agents.
+model McpToolset {
+  id     String @id @default(uuid()) @db.Uuid
+  teamId String @db.Uuid
+  name   String
+  // User-facing id, unique per team. Letters, digits, underscore only.
+  slug   String
+
+  // Last aggregate test result.
+  lastTestOk    Boolean?
+  lastTestError String?
+  lastTestedAt  DateTime?
+
+  createdById String?  @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  team        Team            @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  connections McpConnection[] @relation("McpToolsetConnections")
+
+  @@unique([teamId, slug])
+  @@index([teamId])
+}
+
+// A "composed" MCP: a wrapper that turns a third-party API into MCP tools,
+// backed by one or more credentials. Unlike McpToolset (which federates remote
+// MCP servers), the tools here are implemented in-process, chosen by `type`.
+// The only supported type today is "quickbooks" (see lib/quickbooks/). Its tools
+// are merged into the root MCP server, prefixed with "<slug>__".
+model McpWrapper {
+  id     String @id @default(uuid()) @db.Uuid
+  teamId String @db.Uuid
+  name   String
+  // User-facing id, unique per team. Letters, digits, underscore only.
+  slug   String
+  // Which in-process MCP implements this wrapper, e.g. "quickbooks". A plain
+  // string (not a PG enum) so adding a type needs no schema migration.
+  type   String
+  // Reserved per-type configuration. Unused for now.
+  settings Json @db.JsonB @default("{}")
+
+  // Last test result (resolves credentials + builds the in-process MCP).
+  lastTestOk    Boolean?
+  lastTestError String?
+  lastTestedAt  DateTime?
+
+  createdById String?  @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  team        Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  // Any credentials can be attached; the wrapper's `type` decides how each is
+  // interpreted (QuickBooks: resolved to an {accessToken, realmId} realm).
+  credentials Credential[] @relation("McpWrapperCredentials")
+
+  @@unique([teamId, slug])
+  @@index([teamId])
+}
+
+// One row per MCP tool call served by this app (root server or a toolset).
+// Logs everything relevant: caller, tool, args, tenant, result/error, timing.
+model McpCallLog {
+  id           String    @id @default(uuid()) @db.Uuid
+  teamId       String?   @db.Uuid
+  source       String // "root" | "toolset"
+  toolsetId    String?   @db.Uuid
+  connectionId String?   @db.Uuid // resolved tenant connection, if any
+  actorType    String // USER | SERVICE_ACCOUNT
+  actorId      String    @db.Uuid
+  tenant       String? // x-mcp-tenant header value
+  toolName     String
+  args         Json?     @db.JsonB
+  ok           Boolean
+  error        String?
+  durationMs   Int?
+  details      Json?     @db.JsonB
+  createdAt    DateTime  @default(now())
+
+  @@index([teamId, createdAt])
+  @@index([toolsetId, createdAt])
+  @@index([connectionId, createdAt])
+}
+
+model AuditLog {
+  id           String      @id @default(uuid()) @db.Uuid
+  ts           DateTime    @default(now())
+  actorType    String // USER | SERVICE_ACCOUNT
+  actorId      String      @db.Uuid
+  // VIEW_CREDENTIAL | CREATE_CREDENTIAL | UPDATE_CREDENTIAL | VIEW_CONNECTION_SECRETS
+  action       String
+  source       String // UI | MCP
+  teamId       String?     @db.Uuid
+  vaultId      String?     @db.Uuid
+  credentialId String?     @db.Uuid
+  connectionId String?     @db.Uuid
+  ip           String?
+  userAgent    String?
+
+  @@index([teamId, ts])
+  @@index([credentialId])
+  @@index([connectionId])
+}
+
+// ---------- OAuth Authorization Server (MCP) ----------
+
+model OAuthClient {
+  id           String   @id @default(uuid()) @db.Uuid
+  clientId     String   @unique
+  clientSecret String? // null for public (PKCE) clients
+  name         String?
+  redirectUris String[]
+  grantTypes   String[]
+  scope        String?
+  createdAt    DateTime @default(now())
+
+  authCodes OAuthAuthCode[]
+  tokens    OAuthToken[]
+}
+
+model OAuthAuthCode {
+  id                  String   @id @default(uuid()) @db.Uuid
+  code                String   @unique
+  clientId            String
+  userId              String   @db.Uuid
+  redirectUri         String
+  scope               String?
+  codeChallenge       String
+  codeChallengeMethod String
+  expiresAt           DateTime
+  createdAt           DateTime @default(now())
+
+  client OAuthClient @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+
+  @@index([clientId])
+}
+
+model OAuthToken {
+  id                String    @id @default(uuid()) @db.Uuid
+  // sha256 of the raw bearer / refresh token.
+  accessTokenHash   String    @unique
+  refreshTokenHash  String?   @unique
+  clientId          String
+  userId            String    @db.Uuid
+  scope             String?
+  accessExpiresAt   DateTime
+  refreshExpiresAt  DateTime?
+  createdAt         DateTime  @default(now())
+  revokedAt         DateTime?
+
+  client OAuthClient @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ---------- OTLP telemetry intake (Claude Code / Cowork) ----------
+
+// One row per leaf record from an OTLP/HTTP-JSON batch. Spans and log records
+// only — metrics are acknowledged but not stored. `record` holds the raw leaf
+// verbatim; the other columns are promoted for querying.
+model OtlpRecord {
+  id           String   @id @default(uuid()) @db.Uuid
+  teamId       String   @db.Uuid // from the request path; validated against Team
+  signalType   String // "trace" | "log"
+  timeUnixNano BigInt? // record's own timestamp, as sent
+  name         String? // span.name, or log event.name attribute
+  traceId      String?
+  spanId       String?
+  severity     String? // log severityText
+  resource     Json     @db.JsonB // resource.attributes (OTLP KeyValue[])
+  scope        Json?    @db.JsonB // instrumentation scope
+  record       Json     @db.JsonB // full raw leaf record, verbatim
+  receivedAt   DateTime @default(now())
+
+  @@index([teamId, signalType, receivedAt])
+  @@index([traceId])
+}

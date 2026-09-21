@@ -1,0 +1,18 @@
+# Keep the build context small and deterministic. A local node_modules or .next
+# must never reach a stage that builds them itself.
+node_modules
+**/node_modules
+.next
+**/.next
+**/*.tsbuildinfo
+
+.git
+.env
+.env.*
+
+# Not needed in the image.
+docs
+.drafts
+.idea
+.playwright-mcp
+.DS_Store

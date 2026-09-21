@@ -24,6 +24,52 @@ export function parseNangoRef(ref: unknown): NangoRef | null {
 
 export class NangoError extends Error {}
 
+// What we can learn about a connection from Nango without knowing (or trusting)
+// the provider config key stored on our side.
+export type NangoConnectionInfo = {
+  connectionId: string;
+  provider: string | null; // Nango provider slug, e.g. "quickbooks"
+  providerConfigKey: string | null;
+};
+
+// Looks a connection up by id alone (no provider_config_key) via Nango's list
+// endpoint, so we learn the real provider rather than trusting our stored key.
+// Returns null if Nango has no such connection; throws NangoError on config or
+// transport errors.
+export async function getNangoConnectionInfo(connectionId: string): Promise<NangoConnectionInfo | null> {
+  const secretKey = process.env.NANGO_SECRET_KEY;
+  if (!secretKey) throw new NangoError("NANGO_SECRET_KEY is not set");
+
+  const url = `${NANGO_HOST}/connection?connectionId=${encodeURIComponent(connectionId)}`;
+  let res: Response;
+  try {
+    res = await fetch(url, { headers: { Authorization: `Bearer ${secretKey}` } });
+  } catch (e) {
+    throw new NangoError(`Nango request failed: ${(e as Error).message}`);
+  }
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new NangoError(`Nango returned HTTP ${res.status}. ${body}`);
+  }
+
+  const data = (await res.json()) as {
+    connections?: Array<{ connection_id?: string; provider?: string; provider_config_key?: string }>;
+  };
+  const list = data.connections ?? [];
+  const match = list.find((c) => c.connection_id === connectionId) ?? list[0];
+  if (!match) return null;
+
+  return {
+    connectionId,
+    provider: match.provider ?? null,
+    providerConfigKey: match.provider_config_key ?? null,
+  };
+}
+
+export function isQuickbooksProvider(provider: string | null | undefined): boolean {
+  return !!provider && provider.toLowerCase().includes("quickbooks");
+}
+
 // Returns a currently-valid access token. Throws NangoError with a readable
 // message on misconfiguration or when the connection needs re-authorization.
 export async function fetchNangoToken(ref: NangoRef): Promise<NangoToken> {

@@ -11,6 +11,7 @@ export const RESERVED_SLUGS = new Set([
   "login",
   "no-team",
   "callback",
+  "quickbooks-disconnect",
   "_next",
   "favicon.ico",
   "icon.svg",

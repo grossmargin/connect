@@ -1,34 +1,29 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 
-// A published MCP scope with the toolsets (and their connections) it exposes.
-export type ScopeWithToolsets = Prisma.McpScopeGetPayload<{
-  include: { toolsets: { include: { connections: true } } };
+// A Published MCP with the members it exposes: individual connections plus
+// tenanted groups (and each group's tenant connections).
+export type ScopeWithMembers = Prisma.McpScopeGetPayload<{
+  include: { connections: true; groups: { include: { tenants: true } } };
 }>;
 
-const DEFAULT_INCLUDE = { toolsets: { include: { connections: true } } } as const;
+const DEFAULT_INCLUDE = {
+  connections: true,
+  groups: { include: { tenants: true } },
+} as const;
 
-// The team's default scope (served at the team root). Created on first use with
-// every existing toolset attached, so the root keeps serving what it did before
-// scopes existed. New toolsets are not auto-published — they're added to a scope
-// explicitly.
-export async function getOrCreateDefaultScope(teamId: string): Promise<ScopeWithToolsets> {
+// The team's default Published MCP (served at the team root). Created empty on
+// first use. Members are added explicitly.
+export async function getOrCreateDefaultScope(teamId: string): Promise<ScopeWithMembers> {
   const existing = await prisma.mcpScope.findFirst({
     where: { teamId, isDefault: true },
     include: DEFAULT_INCLUDE,
   });
   if (existing) return existing;
 
-  const toolsets = await prisma.mcpToolset.findMany({ where: { teamId }, select: { id: true } });
   try {
     return await prisma.mcpScope.create({
-      data: {
-        teamId,
-        name: "Default",
-        slug: "",
-        isDefault: true,
-        toolsets: { connect: toolsets.map((t) => ({ id: t.id })) },
-      },
+      data: { teamId, name: "Default", slug: "", isDefault: true },
       include: DEFAULT_INCLUDE,
     });
   } catch (e) {
@@ -44,12 +39,12 @@ export async function getOrCreateDefaultScope(teamId: string): Promise<ScopeWith
   }
 }
 
-// The scope published at a given path segment, or the default scope when no
-// segment is given. Returns null for an unknown named scope.
+// The Published MCP at a given path segment, or the default one when no segment
+// is given. Returns null for an unknown named endpoint.
 export async function resolveScope(
   teamId: string,
   scopeSlug?: string | null,
-): Promise<ScopeWithToolsets | null> {
+): Promise<ScopeWithMembers | null> {
   if (!scopeSlug) return getOrCreateDefaultScope(teamId);
   return prisma.mcpScope.findUnique({
     where: { teamId_slug: { teamId, slug: scopeSlug } },

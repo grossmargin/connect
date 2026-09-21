@@ -5,7 +5,7 @@ Claude Cowork.
 
 - **Provider connectors are single-account.** If you manage several companies in one provider (for
   example Deel, Gusto, Ramp), you can connect only one, and Claude cannot mount two instances of the same MCP. This
-  blocks agencies that manage many client accounts. **Federated MCPs** (see below) solve it.
+  blocks agencies that manage many client accounts. **Published MCPs** with **groups** (see below) solve it.
 - **Stock MCP connectors expose less than the API behind them.** For example, the Google Drive connector
   cannot edit cell values in a Sheet, but the Google Sheets API can. The fix is to hand the agent the
   raw credentials, safely. This part is a "missing 1Password MCP": you store a credential once, and
@@ -15,11 +15,15 @@ Built with Next.js, Prisma, and Postgres.
 
 ![Vaults](docs/screenshots/vaults.png)
 
-## Federated MCPs
+## Published MCPs
 
-A provider's MCP is scoped to one account. When you manage many accounts on the same provider, you need
-one MCP that fronts all of them. A Federated MCP does that: it groups several **MCP Connections** to the
-same provider (identical tool sets) and serves them as a single MCP endpoint.
+A **Published MCP** is an MCP endpoint that exposes a set of members. A member is one of:
+
+- an **individual MCP** — one connection, whose tools are served under its own `<id>__` prefix; or
+- a **group** — several connections of the same provider, served under one `<id>__` prefix. Each
+  connection is a **tenant**, and the agent picks one per call with a required `tenant` argument.
+
+The default Published MCP is served at your team root (`/<team>`); named ones at `/<team>/<id>`.
 
 Set one up in two steps:
 
@@ -28,12 +32,15 @@ Set one up in two steps:
 
    ![MCP Connections](docs/screenshots/connections.png)
 
-2. Group the connections into a Federated MCP. It is served at `/toolset/<id>`.
+2. Create a Published MCP and add members: individual MCPs, and groups for the providers where you have
+   several accounts.
 
-   ![Federated MCPs](docs/screenshots/federated-mcps.png)
+   ![Published MCPs](docs/screenshots/published-mcps.png)
 
-The agent picks the account per call. Every routed tool gets a required `tenant` argument. The agent
-calls `<slug>__tenants` to list the accounts, then passes one `tenant` id on each tool call.
+   ![Editing a Published MCP](docs/screenshots/published-mcp-edit.png)
+
+For a group, the agent calls `<id>__tenants` to list the accounts, then passes one `tenant` id on each
+tool call. An individual MCP is called directly — no `tenant` argument.
 
 ## Vaults and Credentials
 

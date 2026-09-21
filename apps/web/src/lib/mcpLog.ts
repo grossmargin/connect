@@ -4,8 +4,9 @@ import { prisma } from "@/lib/db";
 import { principalActor, type Principal } from "@/lib/mcp";
 
 export type McpCallEntry = {
-  source: "root" | "toolset" | "wrapper";
+  source: "root" | "group" | "connection" | "wrapper";
   teamId?: string | null;
+  // For a group call this holds the group id (the column predates groups).
   toolsetId?: string | null;
   connectionId?: string | null;
   tenant?: string | null;

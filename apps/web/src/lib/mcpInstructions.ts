@@ -1,5 +1,6 @@
 export type TenantSummary = { id: string; name: string };
-export type ToolsetSummary = { name: string; slug: string; tenants: TenantSummary[] };
+export type GroupSummary = { name: string; slug: string; tenants: TenantSummary[] };
+export type ConnSummary = { name: string; slug: string };
 export type VaultSummary = { name: string; description?: string | null };
 export type WrapperSummary = { name: string; slug: string; type: string };
 
@@ -24,34 +25,42 @@ function vaultsList(vaults: VaultSummary[]): string {
     .join("\n");
 }
 
-function toolsetSection(ts: ToolsetSummary): string {
-  const tenants = ts.tenants.length
-    ? ts.tenants.map((t) => `- \`${t.id}\` — ${t.name}`).join("\n")
+function connSection(c: ConnSummary): string {
+  return `## ${c.slug} — ${c.name}
+
+Its tools are prefixed with \`${c.slug}__\` and call the service directly (no tenant argument). Call \`${c.slug}__instructions\` for service-specific guidance.`;
+}
+
+function groupSection(g: GroupSummary): string {
+  const tenants = g.tenants.length
+    ? g.tenants.map((t) => `- \`${t.id}\` — ${t.name}`).join("\n")
     : "_No tenants configured yet._";
 
-  return `## ${ts.slug} — ${ts.name}
+  return `## ${g.slug} — ${g.name} (group)
 
-All tools in this toolset are prefixed with \`${ts.slug}__\` and back onto ${ts.tenants.length} tenant(s) in the ${ts.name} domain. **Every \`${ts.slug}__\` call must name a tenant** — the same tool routes to a different account per tenant.
+All tools in this group are prefixed with \`${g.slug}__\` and back onto ${g.tenants.length} tenant(s). **Every \`${g.slug}__\` call must name a tenant** — the same tool routes to a different account per tenant.
 
-**Pass a \`tenant\` argument on every \`${ts.slug}__\` call**, e.g. \`{ "tenant": "${ts.tenants[0]?.id ?? "<tenant-id>"}", ... }\`. It is a required argument. If you omit it, the call fails and lists the tenant ids.
+**Pass a \`tenant\` argument on every \`${g.slug}__\` call**, e.g. \`{ "tenant": "${g.tenants[0]?.id ?? "<tenant-id>"}", ... }\`. It is a required argument. If you omit it, the call fails and lists the tenant ids.
 
-**Steps:** call \`${ts.slug}__tenants\` to get the tenant ids → pick one → pass it as \`tenant\` on each tool call. Optionally call \`${ts.slug}__instructions\` with that tenant for tenant-specific guidance.
+**Steps:** call \`${g.slug}__tenants\` to get the tenant ids → pick one → pass it as \`tenant\` on each tool call. Optionally call \`${g.slug}__instructions\` with that tenant for tenant-specific guidance.
 
 Tenants:
 
 ${tenants}`;
 }
 
-// Instructions markdown for the root MCP server. The toolset list is templated
-// in from the caller's teams.
+// Instructions markdown for one Published MCP. Its members (individual
+// connections and tenanted groups) are templated in.
 export function renderRootInstructions(
-  toolsets: ToolsetSummary[],
+  groups: GroupSummary[],
+  connections: ConnSummary[] = [],
   vaults: VaultSummary[] = [],
   wrappers: WrapperSummary[] = [],
 ): string {
-  const sections = toolsets.length
-    ? ["\nThe toolsets available to you:\n", ...toolsets.map(toolsetSection)].join("\n\n")
-    : "\n_No toolsets are available to you yet._";
+  const members = [...connections.map(connSection), ...groups.map(groupSection)];
+  const sections = members.length
+    ? ["\nThe MCPs available to you:\n", ...members].join("\n\n")
+    : "\n_No MCPs are published here yet._";
 
   return `# Grossmargin Connect
 
@@ -75,9 +84,9 @@ You may have several ways to reach the same service. Prefer them in this order:
 
 ## MCP tools
 
-Some services are exposed as a set of MCP tools grouped into a **toolset**. Each toolset covers one domain and gives access to several tenants within it.
+Each published MCP contributes tools under its own \`<id>__\` prefix. An individual MCP is called directly; a **group** bundles several accounts (tenants) behind one prefix and needs a \`tenant\` argument to pick the account.
 
-**IMPORTANT:** If a service offers both a toolset and an API key, try the tools first and fall back to the API key.
+**IMPORTANT:** If a service offers both tools and an API key, try the tools first and fall back to the API key.
 ${sections}${wrappersSection(wrappers)}
 `;
 }

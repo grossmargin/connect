@@ -9,16 +9,17 @@ import {
 import { resolvePrincipal, getVaults, getCredentials, viewCredential, type Principal } from "@/lib/mcp";
 import { connectionStatusReport } from "@/lib/mcpStatus";
 import { logMcpCall } from "@/lib/mcpLog";
+import { text, errorResult, resultText, headerValue } from "@/lib/mcpToolShared";
 import {
-  text,
-  errorResult,
-  resultText,
-  headerValue,
-  toolsetOwns,
-  toolsetToolDefs,
-  handleToolsetCall,
-  type ToolsetWithConnections,
-} from "@/lib/toolsetTools";
+  connOwns,
+  connToolDefs,
+  handleConnCall,
+  groupOwns,
+  groupToolDefs,
+  handleGroupCall,
+  type GroupWithTenants,
+} from "@/lib/publishedTools";
+import type { McpConnection } from "@prisma/client";
 import {
   wrapperOwns,
   wrapperToolDefs,
@@ -83,7 +84,7 @@ const STATUS_TOOL: Tool = {
   name: "mcps_connection_status",
   description:
     "Health-check every configured MCP connection by actually connecting (auth + tools/list). " +
-    "Returns results grouped by toolset, then by connection.",
+    "Returns results per connection.",
   inputSchema: { type: "object", properties: {} },
 };
 
@@ -126,15 +127,16 @@ async function runCredentialTool(
   return cred ? json(cred) : errorResult("Credential not found.");
 }
 
-// The root MCP server ("/"): the credential tools plus every tool contributed by
-// the caller's toolsets and composed wrappers (all slug-prefixed). Built per
-// request so it reflects the caller. Every call is logged to McpCallLog; reveals
-// also write AuditLog.
+// The MCP server for one Published MCP: the credential tools plus every tool
+// contributed by the endpoint's groups (tenanted) and individual connections,
+// plus composed wrappers (all slug-prefixed). Built per request so it reflects
+// the caller. Every call is logged to McpCallLog; reveals also write AuditLog.
 // `endpoint` is the request path this handler serves (mcp-handler matches it
 // exactly against the incoming pathname). `teamScope`, when set, restricts the
 // caller to that single team. Both mounts (root and /[teamSlug]) serve one team.
 export function buildMcpHandler(
-  toolsets: ToolsetWithConnections[],
+  groups: GroupWithTenants[],
+  connections: McpConnection[] = [],
   wrappers: WrapperWithCredentials[] = [],
   instructions?: string,
   opts: { endpoint?: string; teamScope?: string } = {},
@@ -145,9 +147,18 @@ export function buildMcpHandler(
       const server = mcp.server;
 
       server.setRequestHandler(ListToolsRequestSchema, async () => {
-        const perToolset = await Promise.all(toolsets.map((ts) => toolsetToolDefs(ts)));
+        const perGroup = await Promise.all(groups.map((g) => groupToolDefs(g)));
+        const perConn = await Promise.all(connections.map((c) => connToolDefs(c)));
         const perWrapper = wrappers.map((w) => wrapperToolDefs(w));
-        return { tools: [...CREDENTIAL_TOOLS, STATUS_TOOL, ...perToolset.flat(), ...perWrapper.flat()] };
+        return {
+          tools: [
+            ...CREDENTIAL_TOOLS,
+            STATUS_TOOL,
+            ...perGroup.flat(),
+            ...perConn.flat(),
+            ...perWrapper.flat(),
+          ],
+        };
       });
 
       server.setRequestHandler(CallToolRequestSchema, async (req, extra) => {
@@ -210,15 +221,15 @@ export function buildMcpHandler(
           }
         }
 
-        const ts = toolsets.find((t) => toolsetOwns(t, name));
-        if (ts) {
+        const group = groups.find((g) => groupOwns(g, name));
+        if (group) {
           try {
-            const out = await handleToolsetCall(ts, name, args);
+            const out = await handleGroupCall(group, name, args);
             const failed = !!out.result.isError;
             await logMcpCall(principal, {
-              source: "toolset",
-              teamId: ts.teamId,
-              toolsetId: ts.id,
+              source: "group",
+              teamId: group.teamId,
+              toolsetId: group.id,
               connectionId: out.connectionId,
               tenant: out.tenant,
               toolName: name,
@@ -232,10 +243,44 @@ export function buildMcpHandler(
           } catch (e) {
             const msg = e instanceof Error ? e.message : "call failed";
             await logMcpCall(principal, {
-              source: "toolset",
-              teamId: ts.teamId,
-              toolsetId: ts.id,
+              source: "group",
+              teamId: group.teamId,
+              toolsetId: group.id,
               tenant: typeof args.tenant === "string" ? args.tenant : null,
+              toolName: name,
+              args,
+              ok: false,
+              error: msg,
+              durationMs: Date.now() - started,
+              details: callDetails(headers, e),
+            });
+            return errorResult(msg);
+          }
+        }
+
+        const conn = connections.find((c) => connOwns(c, name));
+        if (conn) {
+          try {
+            const out = await handleConnCall(conn, name, args);
+            const failed = !!out.result.isError;
+            await logMcpCall(principal, {
+              source: "connection",
+              teamId: conn.teamId,
+              connectionId: out.connectionId,
+              toolName: name,
+              args,
+              ok: !failed,
+              error: failed ? resultText(out.result) : null,
+              durationMs: Date.now() - started,
+              details: callDetails(headers, failed ? resultText(out.result) : undefined),
+            });
+            return out.result;
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : "call failed";
+            await logMcpCall(principal, {
+              source: "connection",
+              teamId: conn.teamId,
+              connectionId: conn.id,
               toolName: name,
               args,
               ok: false,

@@ -75,12 +75,16 @@ model Team {
   mcpToolsets     McpToolset[]
   mcpWrappers     McpWrapper[]
   mcpScopes       McpScope[]
+  mcpGroups       McpGroup[]
   kvEntries       KeyValueStore[]
 }
 
 // A "published MCP": a named subset of the team's toolsets (Federated MCPs)
 // exposed at an MCP endpoint. The default scope (slug "") is served at the team
 // root (/ and /[teamSlug]); a named scope is served at /[teamSlug]/[slug].
+// A Published MCP: an endpoint served at /[teamSlug] (default) or
+// /[teamSlug]/<slug>. It exposes its individual member connections plus its
+// tenanted groups.
 model McpScope {
   id        String   @id @default(uuid()) @db.Uuid
   teamId    String   @db.Uuid
@@ -92,11 +96,38 @@ model McpScope {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  team     Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  team     Team            @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  // Individual member MCPs (tools prefixed with the connection slug).
+  connections McpConnection[] @relation("McpScopeConnections")
+  // Tenanted groups (tools prefixed with the group slug + a `tenant` argument).
+  groups   McpGroup[]
+  // DEPRECATED: federated toolsets. Frozen — kept for data migration, no longer read.
   toolsets McpToolset[] @relation("McpScopeToolsets")
 
   @@unique([teamId, slug])
   @@index([teamId])
+}
+
+// A tenanted group inside one Published MCP. Its member connections are tenants;
+// their shared tools are published under "<slug>__" and take a required `tenant`
+// argument selecting the account. Replaces the federated McpToolset.
+model McpGroup {
+  id        String   @id @default(uuid()) @db.Uuid
+  teamId    String   @db.Uuid
+  scopeId   String   @db.Uuid
+  name      String
+  // Tool prefix, unique within its Published MCP. Letters, digits, underscore.
+  slug      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  team    Team            @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  scope   McpScope        @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  tenants McpConnection[] @relation("McpGroupTenants")
+
+  @@unique([scopeId, slug])
+  @@index([teamId])
+  @@index([scopeId])
 }
 
 // Generic, untyped store for cache and transient state (namespaced per team).
@@ -233,8 +264,13 @@ model McpConnection {
   updatedAt       DateTime  @updatedAt
 
   team     Team                @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  // DEPRECATED: federated toolsets. Frozen — kept for data migration, no longer read.
   toolsets McpToolset[]        @relation("McpToolsetConnections")
   testLogs ConnectionTestLog[]
+  // Published directly (as an individual MCP) on these Published MCPs.
+  publishedScopes McpScope[]   @relation("McpScopeConnections")
+  // Member (tenant) of these groups.
+  groups   McpGroup[]          @relation("McpGroupTenants")
 
   @@unique([teamId, slug])
   @@index([teamId])

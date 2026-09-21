@@ -1,0 +1,74 @@
+"use client";
+
+import { App, Button, Card, Form, Input, Typography } from "antd";
+import { AppstoreOutlined } from "@ant-design/icons";
+import { useRouter } from "next/navigation";
+import { useTransition } from "react";
+import { createScope } from "../actions";
+import { Page } from "../../../Page";
+import { DetailHeader } from "../../../DetailHeader";
+import { useCurrentTeam } from "../../../TeamContext";
+
+export default function NewPublishedMcpPage() {
+  const router = useRouter();
+  const { teamId, teamSlug } = useCurrentTeam();
+  const { message } = App.useApp();
+  const [form] = Form.useForm();
+  const [pending, start] = useTransition();
+
+  const submit = () =>
+    form.validateFields().then((v) =>
+      start(async () => {
+        const r = await createScope(teamId, v.name, v.slug ?? "");
+        if ("error" in r) {
+          message.error(r.error);
+          return;
+        }
+        message.success("Published MCP created");
+        router.replace(`/${teamSlug}/published/${r.id}`);
+      }),
+    );
+
+  return (
+    <Page
+      breadcrumb={[
+        { title: "Published MCPs", href: `/${teamSlug}/published` },
+        { title: "New" },
+      ]}
+    >
+      <DetailHeader
+        icon={<AppstoreOutlined />}
+        title="New Published MCP"
+        subtitle="An endpoint that exposes a set of member MCPs"
+        backHref={`/${teamSlug}/published`}
+        backLabel="All published MCPs"
+      />
+
+      <div className="max-w-[560px]">
+        <Card title="Properties">
+          <Form form={form} layout="vertical" requiredMark={false}>
+            <Form.Item name="name" label="Name" rules={[{ required: true, message: "Enter a name" }]}>
+              <Input placeholder="e.g. Public" autoFocus />
+            </Form.Item>
+            <Form.Item
+              name="slug"
+              label="Id (path segment)"
+              extra="Served at /team/<id>. Letters, digits and underscore only; defaults from the name."
+            >
+              <Input placeholder="e.g. public" />
+            </Form.Item>
+            <Typography.Paragraph type="secondary" className="!text-sm">
+              After creating it, add member MCPs and groups on the next page.
+            </Typography.Paragraph>
+            <div className="flex gap-2">
+              <Button type="primary" loading={pending} onClick={submit}>
+                Create
+              </Button>
+              <Button onClick={() => router.push(`/${teamSlug}/published`)}>Cancel</Button>
+            </div>
+          </Form>
+        </Card>
+      </div>
+    </Page>
+  );
+}

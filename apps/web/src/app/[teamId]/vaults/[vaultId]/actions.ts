@@ -128,6 +128,19 @@ export async function updateVault(
   revalidatePath(`/${teamId}`);
 }
 
+// Deletes the vault and, by cascade, every credential in it.
+export async function deleteVault(
+  teamId: string,
+  vaultId: string,
+): Promise<{ error: string } | void> {
+  const user = await requireUser();
+  const vault = await prisma.vault.findUnique({ where: { id: vaultId }, select: { teamId: true } });
+  if (!vault || vault.teamId !== teamId || !(await userInTeam(user.id, teamId))) return { error: "not found" };
+
+  await prisma.vault.delete({ where: { id: vaultId } });
+  revalidatePath(`/${teamId}`);
+}
+
 // Reveal is the audited event.
 export async function revealCredential(credentialId: string): Promise<{ value: string } | { error: string }> {
   const user = await requireUser();

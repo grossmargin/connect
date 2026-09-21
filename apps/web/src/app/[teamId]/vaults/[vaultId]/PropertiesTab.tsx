@@ -1,9 +1,10 @@
 "use client";
 
-import { App, Button, Form, Input } from "antd";
+import { App, Button, Form, Input, Popconfirm } from "antd";
+import { DeleteOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { updateVault } from "./actions";
+import { deleteVault, updateVault } from "./actions";
 
 export function PropertiesTab({
   teamId,
@@ -20,6 +21,7 @@ export function PropertiesTab({
   const router = useRouter();
   const [form] = Form.useForm();
   const [pending, start] = useTransition();
+  const [deleting, startDelete] = useTransition();
 
   const submit = () =>
     form.validateFields().then((v) =>
@@ -33,6 +35,17 @@ export function PropertiesTab({
         router.refresh();
       }),
     );
+
+  const remove = () =>
+    startDelete(async () => {
+      const r = await deleteVault(teamId, vaultId);
+      if (r && "error" in r) {
+        message.error(r.error);
+        return;
+      }
+      message.success("Vault deleted");
+      router.push(`/${teamId}`);
+    });
 
   return (
     <div className="max-w-md">
@@ -52,6 +65,24 @@ export function PropertiesTab({
           Save
         </Button>
       </Form>
+
+      <div className="mt-8 border-t border-gray-100 pt-6">
+        <div className="mb-2 text-sm font-medium text-gray-900">Danger zone</div>
+        <p className="mb-3 text-sm text-gray-500">
+          Deleting a vault permanently removes it and every credential it holds.
+        </p>
+        <Popconfirm
+          title="Delete this vault?"
+          description="This removes the vault and all its credentials. This cannot be undone."
+          okText="Delete"
+          okButtonProps={{ danger: true }}
+          onConfirm={remove}
+        >
+          <Button danger icon={<DeleteOutlined />} loading={deleting}>
+            Delete vault
+          </Button>
+        </Popconfirm>
+      </div>
     </div>
   );
 }

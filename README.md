@@ -1,58 +1,131 @@
 # Grossmargin Connect
 
-Team secrets vault and MCP gateway: stores credentials, connects to third-party MCP servers, and serves
-its own MCP endpoint. Next.js + Prisma + Postgres.
+Grossmargin Connect is an MCP server that fills two gaps in the MCP connectors built for Claude and
+Claude Cowork.
 
-## Model
+- **Provider connectors are single-account.** If you manage several companies in one provider (for
+  example Deel, Gusto, Ramp), you can connect only one, and Claude cannot mount two instances of the same MCP. This
+  blocks agencies that manage many client accounts. **Federated MCPs** (see below) solve it.
+- **Stock MCP connectors expose less than the API behind them.** For example, the Google Drive connector
+  cannot edit cell values in a Sheet, but the Google Sheets API can. The fix is to hand the agent the
+  raw credentials, safely. This part is a "missing 1Password MCP": you store a credential once, and
+  Connect exposes tools to reveal it to the agent. **Vaults** and **Credentials** handle it.
 
-- **Team** — owns everything. Team↔User is many-to-many. Any member has full read+write on all the
-  team's vaults.
-- **Vault** — a group of credentials in a team.
-- **Credential** — `name`, `description`, `type` (`SINGLELINE` | `MULTILINE` | `NANGO`), and `content`.
-  Content is encrypted at rest (AES-256-GCM) and decrypts to JSON `{ "value": "..." }`.
-  Name/description/type stay in plaintext.
-  - **NANGO** credentials store no secret. `content` is null; a `credentialRef` JSONB
-    (`{ connectionId, providerConfigKey }`) points at a [Nango](https://nango.dev) connection. On reveal,
-    the server fetches a live, auto-refreshed OAuth access token from Nango. To an MCP client this is
-    transparent: the credential lists like any other, and `view_credential` returns the current token in
-    `content` (plus `realmId` and `expiresAt` for QuickBooks). Needs `NANGO_SECRET_KEY` in the
-    environment; `NANGO_HOST` overrides the default `https://api.nango.dev`.
-- **ServiceAccount** — team-scoped, read-only. Holds one or more keys (`sa_...`). Keys are shown once at
-  creation, then only as a prefix. Any key works (rotation).
+Built with Next.js, Prisma, and Postgres.
 
-## Access
+![Vaults](docs/screenshots/vaults.png)
 
-Users sign in with Google. Set `AUTH_ALLOWED_DOMAIN` to restrict sign-in to one Workspace domain; leave
-it unset to allow any Google account. A first login creates a `User` with no team.
-Add people to teams by editing the database — there are no invitations yet.
+## Federated MCPs
 
-## Encryption
+A provider's MCP is scoped to one account. When you manage many accounts on the same provider, you need
+one MCP that fronts all of them. A Federated MCP does that: it groups several **MCP Connections** to the
+same provider (identical tool sets) and serves them as a single MCP endpoint.
 
-`ENCRYPTION_KEY` is a comma-separated list of 32-byte base64 keys, newest first. New content is encrypted
-with the first key; each record tags which key it used, so old keys still decrypt after rotation.
+Set one up in two steps:
 
-```
-openssl rand -base64 32   # make a key
-```
+1. Add one **MCP Connection** per provider account. Each connection authenticates on its own, by OAuth
+   (Dynamic Client Registration + PKCE) or by static headers (a Personal Access Token).
 
-## MCP
+   ![MCP Connections](docs/screenshots/connections.png)
 
-The MCP server is mounted at `/mcp` (stateless Streamable HTTP). Tools:
+2. Group the connections into a Federated MCP. It is served at `/toolset/<id>`.
+
+   ![Federated MCPs](docs/screenshots/federated-mcps.png)
+
+The agent picks the account per call. Every routed tool gets a required `tenant` argument. The agent
+calls `<slug>__tenants` to list the accounts, then passes one `tenant` id on each tool call.
+
+## Vaults and Credentials
+
+A **Vault** is an encrypted store of credentials. Access is granted per vault, to a team.
+
+A **Credential** has a `name`, a `description`, and a `type`:
+
+- `SINGLELINE` / `MULTILINE` — a secret you store directly. The content is encrypted at rest with
+  AES-256-GCM; the name, description, and type stay in plaintext.
+- `NANGO` — no secret is stored. The credential points at a [Nango](https://nango.dev) connection, and
+  Connect fetches a live, auto-refreshed OAuth token on each read. Needs `NANGO_SECRET_KEY`.
+
+Agents reach vaults through the root MCP server at `/mcp`, with three tools:
 
 - `get_vaults` — vaults you can access.
-- `get_credentials(vaultId?)` — credential metadata (never content).
-- `view_credential(credentialId)` — decrypted content, or a live Nango token for `NANGO` creds. Audited.
+- `get_credentials(vaultId?)` — credential metadata (never the content).
+- `view_credential(credentialId)` — the decrypted content, or a live Nango token. Every reveal is
+  written to the audit log.
 
-Two auth paths:
+## Deployment
 
-- **Service account** — `Authorization: Bearer sa_...`. Scoped to the SA's team, read-only.
-- **OAuth** — standard MCP flow (Dynamic Client Registration + PKCE). The human logs in with Google; the
-  token is scoped to all their teams. Endpoints: `/.well-known/oauth-authorization-server`,
-  `/oauth/register`, `/oauth/authorize`, `/oauth/token`.
+Deploy on Vercel, or on any host that runs Docker images. You need a Postgres database and a Google
+OAuth client. On Vercel the schema is applied during the build; on Docker you apply it yourself with
+`bun run db:push` (see below). Either way, creating the first team is manual — there are no invitations
+yet.
 
-## Audit
+### Environment variables
 
-Every content reveal (`view_credential`, UI or MCP) and credential create/update is written to `AuditLog`.
+Copy `apps/web/.env.example` to `apps/web/.env` (local), or set these in your host's dashboard:
+
+| Variable | Purpose |
+| --- | --- |
+| `DATABASE_URL` | Postgres connection string. |
+| `ENCRYPTION_KEY` | AES-256-GCM keys, comma-separated 32-byte base64, newest first. `openssl rand -base64 32`. Rotate by prepending a new key; old rows still decrypt. |
+| `AUTH_SECRET` | NextAuth secret. `openssl rand -base64 32`. |
+| `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | Google OAuth client. |
+| `AUTH_ALLOWED_DOMAINS` | Optional. Comma-separated Google Workspace domains allowed to sign in. Unset = any Google account. |
+| `APP_URL` | Public base URL of the app. |
+| `NANGO_SECRET_KEY` | Optional. Needed only for `NANGO` credentials. |
+
+### Google OAuth client
+
+1. In the [Google Cloud Console](https://console.cloud.google.com/apis/credentials), create an
+   **OAuth client ID** of type **Web application**.
+2. Add the redirect URI `${APP_URL}/api/auth/callback/google` (for local dev,
+   `http://localhost:3000/api/auth/callback/google`).
+3. Copy the client id and secret into `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET`.
+
+### Deploy on Vercel
+
+1. Import the repo into Vercel and set the **Root Directory** to `apps/web`.
+2. Add the [environment variables](#environment-variables).
+3. Deploy. The build command (`apps/web/vercel.json`) runs `prisma db push` before `next build`, so the
+   schema is applied on every deploy.
+
+<!-- TODO: Vercel setup screenshot -->
+
+### Deploy with Docker
+
+The image serves the app only; it does not migrate the database. Apply the schema first — and again
+after any schema change — from a checkout, with the production `DATABASE_URL`:
+
+```
+DATABASE_URL=postgresql://... bun run db:push
+```
+
+Then build and run:
+
+```
+docker build -t grossmargin-connect .
+docker run -p 3000:3000 --env-file apps/web/.env grossmargin-connect
+```
+
+For local development, `docker-compose.yml` brings up Postgres.
+
+### First run: create a team and sign in
+
+1. Open `APP_URL` and sign in with Google. A first login creates a `User` with no team.
+2. Create a team:
+
+   ```sql
+   INSERT INTO "Team" (id, name, "createdAt") VALUES (gen_random_uuid(), 'Acme', now());
+   ```
+
+3. Add the user to the team (repeat for every new member):
+
+   ```sql
+   INSERT INTO "TeamMembership" (id, "userId", "teamId", "createdAt")
+   SELECT gen_random_uuid(), u.id, t.id, now()
+   FROM "User" u CROSS JOIN "Team" t
+   WHERE u.email = 'you@example.com' AND t.name = 'Acme';
+   ```
 
 ## Develop
 
@@ -64,9 +137,6 @@ bun run db:push
 bun run dev
 ```
 
-## Deploy
+## License
 
-```
-docker compose up --build
-bun run db:migrate   # or db:push, against the compose Postgres
-```
+[MIT](LICENSE).

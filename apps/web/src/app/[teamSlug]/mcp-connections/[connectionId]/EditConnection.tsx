@@ -25,7 +25,7 @@ import { useCurrentTeam } from "../../../TeamContext";
 import { timeAgo } from "@/lib/timeAgo";
 
 type ToolInfo = { name: string; description?: string };
-type ToolsetRef = { id: string; name: string; slug: string };
+type Usage = { scopeId: string; label: string };
 
 type Connection = {
   id: string;
@@ -37,7 +37,7 @@ type Connection = {
   lastError: string | null;
   lastConnectedAt: string | null;
   lastTestedAt: string | null;
-  toolsets: ToolsetRef[];
+  usages: Usage[];
 };
 
 function host(url: string): string {
@@ -279,30 +279,30 @@ export function EditConnection({ connection }: { connection: Connection }) {
             </Button>
           </Card>
 
-          <Card title="Used in toolsets">
-            {connection.toolsets.length === 0 ? (
+          <Card title="Published in">
+            {connection.usages.length === 0 ? (
               <Typography.Text type="secondary" className="!text-sm">
-                Not used in any toolset yet.
+                Not part of any Published MCP yet.
               </Typography.Text>
             ) : (
               <>
                 <ul className="m-0 list-none space-y-2 p-0">
-                  {connection.toolsets.map((t) => (
-                    <li key={t.id}>
+                  {connection.usages.map((u, i) => (
+                    <li key={`${u.scopeId}-${i}`}>
                       <Link
-                        href={`/${teamSlug}/mcp-toolsets/${t.id}`}
+                        href={`/${teamSlug}/published/${u.scopeId}`}
                         className="flex items-center gap-2 text-gray-700 hover:text-indigo-600"
                       >
                         <AppstoreOutlined className="text-gray-400" />
-                        <span className="flex-1">{t.name}</span>
+                        <span className="flex-1">{u.label}</span>
                         <ArrowRightOutlined className="text-gray-300" />
                       </Link>
                     </li>
                   ))}
                 </ul>
                 <Typography.Paragraph type="secondary" className="!mb-0 !mt-3 !text-xs">
-                  Removing this connection affects {connection.toolsets.length}{" "}
-                  {connection.toolsets.length === 1 ? "toolset" : "toolsets"}.
+                  Removing this connection affects {connection.usages.length}{" "}
+                  {connection.usages.length === 1 ? "place" : "places"}.
                 </Typography.Paragraph>
               </>
             )}

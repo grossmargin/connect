@@ -4,7 +4,6 @@ import { Avatar, Dropdown, Layout, Menu } from "antd";
 import type { MenuProps } from "antd";
 import {
   ApiOutlined,
-  AppstoreOutlined,
   DownOutlined,
   FolderOutlined,
   LogoutOutlined,
@@ -48,7 +47,7 @@ export function AppShell({
   teamName: string;
   userName?: string | null;
   email?: string | null;
-  counts: { connections: number; toolsets: number; scopes: number };
+  counts: { connections: number; scopes: number };
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -63,11 +62,6 @@ export function AppShell({
       key: `${base}/mcp-connections`,
       icon: <ApiOutlined />,
       label: <Link href={`${base}/mcp-connections`}>{navLabel("MCP Connections", counts.connections)}</Link>,
-    },
-    {
-      key: `${base}/mcp-toolsets`,
-      icon: <AppstoreOutlined />,
-      label: <Link href={`${base}/mcp-toolsets`}>{navLabel("Federated MCPs", counts.toolsets)}</Link>,
     },
     {
       key: `${base}/published`,

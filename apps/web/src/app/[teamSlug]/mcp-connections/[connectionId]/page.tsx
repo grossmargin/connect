@@ -16,9 +16,19 @@ export default async function ConnectionDetailPage({
 
   const conn = await prisma.mcpConnection.findUnique({
     where: { id: connectionId },
-    include: { toolsets: { select: { id: true, name: true, slug: true } } },
+    include: {
+      publishedScopes: { select: { id: true, name: true } },
+      groups: { select: { id: true, name: true, scope: { select: { id: true, name: true } } } },
+    },
   });
   if (!conn || conn.teamId !== team.id) notFound();
+
+  // Where this MCP appears: individually in a Published MCP, or as a tenant in
+  // one of its groups. Both link to the Published MCP's edit page.
+  const usages = [
+    ...conn.publishedScopes.map((s) => ({ scopeId: s.id, label: s.name })),
+    ...conn.groups.map((g) => ({ scopeId: g.scope.id, label: `${g.scope.name} · ${g.name} (group)` })),
+  ];
 
   return (
     <EditConnection
@@ -32,7 +42,7 @@ export default async function ConnectionDetailPage({
         lastError: conn.lastError,
         lastConnectedAt: conn.lastConnectedAt?.toISOString() ?? null,
         lastTestedAt: conn.lastTestedAt?.toISOString() ?? null,
-        toolsets: conn.toolsets,
+        usages,
       }}
     />
   );

@@ -5,14 +5,14 @@ import { userInTeam } from "@/lib/access";
 import { kvTake } from "@/lib/kv";
 import { exchangeCode, tokensToCredentials } from "@/lib/mcpClient";
 import { readCredentials, packCredentials } from "@/lib/mcpCredentials";
-import { OAUTH_STATE_NS } from "@/app/[teamId]/mcp-connections/constants";
+import { OAUTH_STATE_NS } from "@/app/[teamSlug]/mcp-connections/constants";
 
 function appUrl(): string {
   return (process.env.APP_URL ?? "http://localhost:3069").replace(/\/$/, "");
 }
 
-function back(teamId: string, connectionId: string, params: Record<string, string>) {
-  const u = new URL(`${appUrl()}/${teamId}/mcp-connections/${connectionId}`);
+function back(teamSlug: string, connectionId: string, params: Record<string, string>) {
+  const u = new URL(`${appUrl()}/${teamSlug}/mcp-connections/${connectionId}`);
   for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v);
   return NextResponse.redirect(u);
 }
@@ -32,8 +32,12 @@ export async function GET(req: Request) {
   if (!entry) return NextResponse.redirect(`${appUrl()}/`);
   const { teamId, value } = entry;
 
-  const conn = await prisma.mcpConnection.findUnique({ where: { id: value.connectionId } });
+  const conn = await prisma.mcpConnection.findUnique({
+    where: { id: value.connectionId },
+    include: { team: { select: { slug: true } } },
+  });
   if (!conn || conn.teamId !== teamId) return NextResponse.redirect(`${appUrl()}/`);
+  const teamSlug = conn.team.slug;
 
   const session = await auth();
   if (!session?.user?.id || !(await userInTeam(session.user.id, teamId))) {
@@ -45,13 +49,13 @@ export async function GET(req: Request) {
       where: { id: conn.id },
       data: { status: "ERROR", lastError: `Authorization denied: ${oauthError}` },
     });
-    return back(teamId, conn.id, { error: oauthError });
+    return back(teamSlug, conn.id, { error: oauthError });
   }
-  if (!code) return back(teamId, conn.id, { error: "missing_code" });
+  if (!code) return back(teamSlug, conn.id, { error: "missing_code" });
 
   try {
     const creds = readCredentials(conn.encryptedCredentials);
-    if (!creds || creds.authType !== "DCR") return back(teamId, conn.id, { error: "not_registered" });
+    if (!creds || creds.authType !== "DCR") return back(teamSlug, conn.id, { error: "not_registered" });
 
     const tokens = await exchangeCode(conn, creds, code, value.codeVerifier);
     await prisma.mcpConnection.update({
@@ -63,12 +67,12 @@ export async function GET(req: Request) {
         encryptedCredentials: packCredentials(tokensToCredentials(creds, tokens)),
       },
     });
-    return back(teamId, conn.id, { authorized: "1" });
+    return back(teamSlug, conn.id, { authorized: "1" });
   } catch (e) {
     await prisma.mcpConnection.update({
       where: { id: conn.id },
       data: { status: "ERROR", lastError: e instanceof Error ? e.message : "token exchange failed" },
     });
-    return back(teamId, conn.id, { error: "exchange_failed" });
+    return back(teamSlug, conn.id, { error: "exchange_failed" });
   }
 }

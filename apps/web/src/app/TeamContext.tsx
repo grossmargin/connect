@@ -2,7 +2,9 @@
 
 import { createContext, useContext } from "react";
 
-export type CurrentTeam = { teamId: string; teamName: string };
+// teamId is the uuid (for server-action args and DB scope); teamSlug is the
+// public id used in URLs.
+export type CurrentTeam = { teamId: string; teamSlug: string; teamName: string };
 
 const TeamContext = createContext<CurrentTeam | null>(null);
 
@@ -10,8 +12,8 @@ export function TeamProvider({ team, children }: { team: CurrentTeam; children: 
   return <TeamContext.Provider value={team}>{children}</TeamContext.Provider>;
 }
 
-// Current team from the /[teamId] route. Assumes one team per user for now;
-// a team selector will set this later.
+// Current team from the /[teamSlug] route. Provided by AppShell, so any client
+// component rendered under a team page can read it.
 export function useCurrentTeam(): CurrentTeam {
   const ctx = useContext(TeamContext);
   if (!ctx) throw new Error("useCurrentTeam must be used within a TeamProvider");

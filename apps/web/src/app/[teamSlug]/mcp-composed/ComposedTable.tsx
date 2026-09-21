@@ -16,6 +16,7 @@ import { COMPOSED_MCP_TYPES, typeLabel } from "./constants";
 import { CopyId } from "../../CopyId";
 import { Page, PageIntro } from "../../Page";
 import { StatusPill, type Tone } from "../../StatusPill";
+import { useCurrentTeam } from "../../TeamContext";
 import { timeAgo } from "@/lib/timeAgo";
 
 export type WrapperRow = {
@@ -35,15 +36,14 @@ function health(ok: boolean | null): { tone: Tone; label: string } {
 }
 
 export function ComposedTable({
-  teamId,
   wrappers,
   credentials,
 }: {
-  teamId: string;
   wrappers: WrapperRow[];
   credentials: CredentialOption[];
 }) {
   const router = useRouter();
+  const { teamId, teamSlug } = useCurrentTeam();
   const { message } = App.useApp();
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
@@ -115,7 +115,7 @@ export function ComposedTable({
             <Button
               type="text"
               icon={<EditOutlined />}
-              onClick={() => router.push(`/${teamId}/mcp-composed/${row.id}`)}
+              onClick={() => router.push(`/${teamSlug}/mcp-composed/${row.id}`)}
             />
           </Tooltip>
           <Popconfirm
@@ -151,34 +151,28 @@ export function ComposedTable({
         dataSource={wrappers}
         pagination={false}
         onRow={(row) => ({
-          onClick: () => router.push(`/${teamId}/mcp-composed/${row.id}`),
+          onClick: () => router.push(`/${teamSlug}/mcp-composed/${row.id}`),
           className: "group cursor-pointer",
         })}
         locale={{ emptyText: "No composed MCPs yet" }}
       />
 
-      <NewWrapperModal
-        teamId={teamId}
-        credentials={credentials}
-        open={open}
-        onClose={() => setOpen(false)}
-      />
+      <NewWrapperModal credentials={credentials} open={open} onClose={() => setOpen(false)} />
     </Page>
   );
 }
 
 function NewWrapperModal({
-  teamId,
   credentials,
   open,
   onClose,
 }: {
-  teamId: string;
   credentials: CredentialOption[];
   open: boolean;
   onClose: () => void;
 }) {
   const router = useRouter();
+  const { teamId, teamSlug } = useCurrentTeam();
   const { message } = App.useApp();
   const [form] = Form.useForm();
   const [pending, start] = useTransition();
@@ -194,7 +188,7 @@ function NewWrapperModal({
         message.success("Composed MCP created");
         onClose();
         form.resetFields();
-        router.push(`/${teamId}/mcp-composed/${r.id}`);
+        router.push(`/${teamSlug}/mcp-composed/${r.id}`);
       }),
     );
 

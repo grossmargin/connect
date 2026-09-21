@@ -11,6 +11,7 @@ import { STATUS_TAG, type ConnectionStatus } from "./status";
 import { CopyId } from "../../CopyId";
 import { Page, PageIntro } from "../../Page";
 import { StatusPill } from "../../StatusPill";
+import { useCurrentTeam } from "../../TeamContext";
 import { timeAgo } from "@/lib/timeAgo";
 import { KNOWN_MCP_SERVERS } from "@/lib/knownMcpServers";
 
@@ -41,8 +42,9 @@ function initials(name: string): string {
   return first.slice(0, 2).toUpperCase();
 }
 
-export function ConnectionsTable({ teamId, connections }: { teamId: string; connections: ConnectionRow[] }) {
+export function ConnectionsTable({ connections }: { connections: ConnectionRow[] }) {
   const router = useRouter();
+  const { teamId, teamSlug } = useCurrentTeam();
   const { message } = App.useApp();
   const [open, setOpen] = useState(false);
   const [tech, setTech] = useState<ConnectionRow | null>(null);
@@ -115,7 +117,7 @@ export function ConnectionsTable({ teamId, connections }: { teamId: string; conn
             <Button
               type="text"
               icon={<EditOutlined />}
-              onClick={() => router.push(`/${teamId}/mcp-connections/${row.id}`)}
+              onClick={() => router.push(`/${teamSlug}/mcp-connections/${row.id}`)}
             />
           </Tooltip>
           <Popconfirm
@@ -155,17 +157,16 @@ export function ConnectionsTable({ teamId, connections }: { teamId: string; conn
         dataSource={connections}
         pagination={false}
         onRow={(row) => ({
-          onClick: () => router.push(`/${teamId}/mcp-connections/${row.id}`),
+          onClick: () => router.push(`/${teamSlug}/mcp-connections/${row.id}`),
           className: "group cursor-pointer",
         })}
         locale={{ emptyText: "No connections yet" }}
       />
 
-      <NewConnectionModal teamId={teamId} open={open} onClose={() => setOpen(false)} />
+      <NewConnectionModal open={open} onClose={() => setOpen(false)} />
 
       {tech && (
         <ConnectionTechModal
-          teamId={teamId}
           connectionId={tech.id}
           connectionName={tech.name}
           open={!!tech}
@@ -178,8 +179,9 @@ export function ConnectionsTable({ teamId, connections }: { teamId: string; conn
 
 type AuthMode = "DCR" | "HEADERS";
 
-function NewConnectionModal({ teamId, open, onClose }: { teamId: string; open: boolean; onClose: () => void }) {
+function NewConnectionModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter();
+  const { teamId, teamSlug } = useCurrentTeam();
   const { message } = App.useApp();
   const [form] = Form.useForm();
   const [pending, start] = useTransition();
@@ -200,7 +202,7 @@ function NewConnectionModal({ teamId, open, onClose }: { teamId: string; open: b
         onClose();
         form.resetFields();
         setMode("DCR");
-        router.push(`/${teamId}/mcp-connections/${r.id}`);
+        router.push(`/${teamSlug}/mcp-connections/${r.id}`);
       }),
     );
 

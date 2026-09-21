@@ -1,30 +1,27 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { requireUser } from "@/lib/session";
-import { userInTeam } from "@/lib/access";
 import { isUuid } from "@/lib/ids";
+import { requireTeam } from "@/lib/team";
 import { EditConnection } from "./EditConnection";
 import type { ConnectionStatus } from "../status";
 
 export default async function ConnectionDetailPage({
   params,
 }: {
-  params: Promise<{ teamId: string; connectionId: string }>;
+  params: Promise<{ teamSlug: string; connectionId: string }>;
 }) {
-  const { teamId, connectionId } = await params;
-  if (!isUuid(teamId) || !isUuid(connectionId)) notFound();
-  const user = await requireUser();
-  if (!(await userInTeam(user.id, teamId))) notFound();
+  const { teamSlug, connectionId } = await params;
+  if (!isUuid(connectionId)) notFound();
+  const team = await requireTeam(teamSlug);
 
   const conn = await prisma.mcpConnection.findUnique({
     where: { id: connectionId },
     include: { toolsets: { select: { id: true, name: true, slug: true } } },
   });
-  if (!conn || conn.teamId !== teamId) notFound();
+  if (!conn || conn.teamId !== team.id) notFound();
 
   return (
     <EditConnection
-      teamId={teamId}
       connection={{
         id: conn.id,
         name: conn.name,

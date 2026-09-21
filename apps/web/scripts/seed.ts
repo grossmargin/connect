@@ -3,7 +3,7 @@ import { encryptContent } from "../src/lib/crypto";
 import { generateServiceAccountKey } from "../src/lib/tokens";
 
 async function main() {
-  const team = await prisma.team.create({ data: { name: "Acme" } });
+  const team = await prisma.team.create({ data: { name: "Acme", slug: "acme" } });
   const user = await prisma.user.create({ data: { email: "v@grossmargin.io", name: "V" } });
   await prisma.teamMembership.create({ data: { userId: user.id, teamId: team.id } });
 
@@ -23,7 +23,7 @@ async function main() {
   const sa = await prisma.serviceAccount.create({ data: { teamId: team.id, name: "ci-bot" } });
   const key = generateServiceAccountKey();
   await prisma.serviceAccountKey.create({
-    data: { serviceAccountId: sa.id, hash: key.hash, prefix: key.prefix },
+    data: { serviceAccountId: sa.id, hash: key.hash, hint: key.hint },
   });
 
   console.log(JSON.stringify({ teamId: team.id, vaultId: vault.id, credentialId: cred.id, saKey: key.raw }));

@@ -1,15 +1,11 @@
-import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { requireUser } from "@/lib/session";
-import { userInTeam } from "@/lib/access";
-import { isUuid } from "@/lib/ids";
+import { requireTeam } from "@/lib/team";
 import { ComposedTable, type WrapperRow, type CredentialOption } from "./ComposedTable";
 
-export default async function McpComposedPage({ params }: { params: Promise<{ teamId: string }> }) {
-  const { teamId } = await params;
-  if (!isUuid(teamId)) notFound();
-  const user = await requireUser();
-  if (!(await userInTeam(user.id, teamId))) notFound();
+export default async function McpComposedPage({ params }: { params: Promise<{ teamSlug: string }> }) {
+  const { teamSlug } = await params;
+  const team = await requireTeam(teamSlug);
+  const teamId = team.id;
 
   const [wrappers, credentials] = await Promise.all([
     prisma.mcpWrapper.findMany({
@@ -48,5 +44,5 @@ export default async function McpComposedPage({ params }: { params: Promise<{ te
     vaultName: c.vault.name,
   }));
 
-  return <ComposedTable teamId={teamId} wrappers={rows} credentials={credentialOptions} />;
+  return <ComposedTable wrappers={rows} credentials={credentialOptions} />;
 }

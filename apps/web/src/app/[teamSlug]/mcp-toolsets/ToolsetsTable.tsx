@@ -9,6 +9,7 @@ import { createToolset, deleteToolset } from "./actions";
 import { CopyId } from "../../CopyId";
 import { Page, PageIntro } from "../../Page";
 import { StatusPill, type Tone } from "../../StatusPill";
+import { useCurrentTeam } from "../../TeamContext";
 import { timeAgo } from "@/lib/timeAgo";
 
 export type ToolsetRow = {
@@ -27,15 +28,14 @@ function health(ok: boolean | null): { tone: Tone; label: string } {
 }
 
 export function ToolsetsTable({
-  teamId,
   toolsets,
   connections,
 }: {
-  teamId: string;
   toolsets: ToolsetRow[];
   connections: ConnectionOption[];
 }) {
   const router = useRouter();
+  const { teamId, teamSlug } = useCurrentTeam();
   const { message } = App.useApp();
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
@@ -101,7 +101,7 @@ export function ToolsetsTable({
             <Button
               type="text"
               icon={<EditOutlined />}
-              onClick={() => router.push(`/${teamId}/mcp-toolsets/${row.id}`)}
+              onClick={() => router.push(`/${teamSlug}/mcp-toolsets/${row.id}`)}
             />
           </Tooltip>
           <Popconfirm
@@ -137,34 +137,28 @@ export function ToolsetsTable({
         dataSource={toolsets}
         pagination={false}
         onRow={(row) => ({
-          onClick: () => router.push(`/${teamId}/mcp-toolsets/${row.id}`),
+          onClick: () => router.push(`/${teamSlug}/mcp-toolsets/${row.id}`),
           className: "group cursor-pointer",
         })}
         locale={{ emptyText: "No federated MCPs yet" }}
       />
 
-      <NewToolsetModal
-        teamId={teamId}
-        connections={connections}
-        open={open}
-        onClose={() => setOpen(false)}
-      />
+      <NewToolsetModal connections={connections} open={open} onClose={() => setOpen(false)} />
     </Page>
   );
 }
 
 function NewToolsetModal({
-  teamId,
   connections,
   open,
   onClose,
 }: {
-  teamId: string;
   connections: ConnectionOption[];
   open: boolean;
   onClose: () => void;
 }) {
   const router = useRouter();
+  const { teamId, teamSlug } = useCurrentTeam();
   const { message } = App.useApp();
   const [form] = Form.useForm();
   const [pending, start] = useTransition();
@@ -180,7 +174,7 @@ function NewToolsetModal({
         message.success("Federated MCP created");
         onClose();
         form.resetFields();
-        router.push(`/${teamId}/mcp-toolsets/${r.id}`);
+        router.push(`/${teamSlug}/mcp-toolsets/${r.id}`);
       }),
     );
 

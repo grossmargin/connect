@@ -1,18 +1,13 @@
-import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { requireUser } from "@/lib/session";
-import { userInTeam } from "@/lib/access";
-import { isUuid } from "@/lib/ids";
+import { requireTeam } from "@/lib/team";
 import { ConnectionsTable, type ConnectionRow } from "./ConnectionsTable";
 
-export default async function McpConnectionsPage({ params }: { params: Promise<{ teamId: string }> }) {
-  const { teamId } = await params;
-  if (!isUuid(teamId)) notFound();
-  const user = await requireUser();
-  if (!(await userInTeam(user.id, teamId))) notFound();
+export default async function McpConnectionsPage({ params }: { params: Promise<{ teamSlug: string }> }) {
+  const { teamSlug } = await params;
+  const team = await requireTeam(teamSlug);
 
   const rows = await prisma.mcpConnection.findMany({
-    where: { teamId },
+    where: { teamId: team.id },
     orderBy: { name: "asc" },
     select: {
       id: true,
@@ -35,5 +30,5 @@ export default async function McpConnectionsPage({ params }: { params: Promise<{
     lastConnectedAt: r.lastConnectedAt?.toISOString() ?? null,
   }));
 
-  return <ConnectionsTable teamId={teamId} connections={connections} />;
+  return <ConnectionsTable connections={connections} />;
 }

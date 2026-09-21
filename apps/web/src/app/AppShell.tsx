@@ -10,6 +10,7 @@ import {
   FolderOutlined,
   LogoutOutlined,
   SafetyCertificateOutlined,
+  SettingOutlined,
 } from "@ant-design/icons";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -35,6 +36,7 @@ function navLabel(text: string, count?: number) {
 
 export function AppShell({
   teamId,
+  teamSlug,
   teamName,
   userName,
   email,
@@ -42,6 +44,7 @@ export function AppShell({
   children,
 }: {
   teamId: string;
+  teamSlug: string;
   teamName: string;
   userName?: string | null;
   email?: string | null;
@@ -49,7 +52,7 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const base = `/${teamId}`;
+  const base = `/${teamSlug}`;
   const [, start] = useTransition();
 
   const vaultsActive = pathname === base || pathname.startsWith(`${base}/vaults`);
@@ -71,12 +74,17 @@ export function AppShell({
       icon: <DeploymentUnitOutlined />,
       label: <Link href={`${base}/mcp-composed`}>{navLabel("Composed MCPs", counts.wrappers)}</Link>,
     },
+    {
+      key: `${base}/settings`,
+      icon: <SettingOutlined />,
+      label: <Link href={`${base}/settings`}>{navLabel("Team Settings")}</Link>,
+    },
   ];
 
   const displayName = userName || email || "Account";
 
   return (
-    <TeamProvider team={{ teamId, teamName }}>
+    <TeamProvider team={{ teamId, teamSlug, teamName }}>
       <Layout style={{ minHeight: "100dvh" }}>
         <Sider theme="light" width={260} className="!border-r !border-gray-200">
           <div className="flex h-full flex-col">

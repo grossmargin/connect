@@ -5,20 +5,20 @@ import { DeleteOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { deleteVault, updateVault } from "./actions";
+import { useCurrentTeam } from "../../../TeamContext";
 
 export function PropertiesTab({
-  teamId,
   vaultId,
   name,
   description,
 }: {
-  teamId: string;
   vaultId: string;
   name: string;
   description: string | null;
 }) {
   const { message } = App.useApp();
   const router = useRouter();
+  const { teamId, teamSlug } = useCurrentTeam();
   const [form] = Form.useForm();
   const [pending, start] = useTransition();
   const [deleting, startDelete] = useTransition();
@@ -44,7 +44,7 @@ export function PropertiesTab({
         return;
       }
       message.success("Vault deleted");
-      router.push(`/${teamId}`);
+      router.push(`/${teamSlug}`);
     });
 
   return (

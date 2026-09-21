@@ -169,7 +169,9 @@ model ServiceAccountKey {
   serviceAccountId String    @db.Uuid
   // sha256 of the raw token (sa_...). The raw token is shown once at creation.
   hash             String    @unique
-  prefix           String
+  // Masked display of the raw token, e.g. `sa_abc12…xyz89`. The full token is
+  // never stored; this is just for recognizing a key in the UI.
+  hint             String
   createdAt        DateTime  @default(now())
   lastUsedAt       DateTime?
   revokedAt        DateTime?

@@ -28,5 +28,5 @@ export default async function TeamHomePage({ params }: { params: Promise<{ teamS
     updatedAt: v.updatedAt.toISOString(),
   }));
 
-  return <VaultsGrid teamSlug={team.slug} vaults={vaults} />;
+  return <VaultsGrid vaults={vaults} />;
 }

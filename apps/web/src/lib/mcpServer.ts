@@ -87,17 +87,26 @@ const STATUS_TOOL: Tool = {
   inputSchema: { type: "object", properties: {} },
 };
 
-const verifyToken = async (_req: Request, bearer?: string): Promise<AuthInfo | undefined> => {
-  if (!bearer) return undefined;
-  const p = await resolvePrincipal(bearer);
-  if (!p) return undefined;
-  return {
-    token: bearer,
-    clientId: p.kind === "sa" ? p.serviceAccountId : p.userId,
-    scopes: ["credentials:read"],
-    extra: { principal: p },
+// Bearer → AuthInfo. When `teamScope` is set, the principal must have access to
+// that team and is narrowed to it, so every tool (credentials included) is
+// scoped to the mounted team rather than all of the caller's teams.
+function makeVerifyToken(teamScope?: string) {
+  return async (_req: Request, bearer?: string): Promise<AuthInfo | undefined> => {
+    if (!bearer) return undefined;
+    const p = await resolvePrincipal(bearer);
+    if (!p) return undefined;
+    if (teamScope) {
+      if (!p.teamIds.includes(teamScope)) return undefined;
+      p.teamIds = [teamScope];
+    }
+    return {
+      token: bearer,
+      clientId: p.kind === "sa" ? p.serviceAccountId : p.userId,
+      scopes: ["credentials:read"],
+      extra: { principal: p },
+    };
   };
-};
+}
 
 async function runCredentialTool(
   p: Principal,
@@ -121,11 +130,16 @@ async function runCredentialTool(
 // the caller's toolsets and composed wrappers (all slug-prefixed). Built per
 // request so it reflects the caller. Every call is logged to McpCallLog; reveals
 // also write AuditLog.
+// `endpoint` is the request path this handler serves (mcp-handler matches it
+// exactly against the incoming pathname). `teamScope`, when set, restricts the
+// caller to that single team. Both mounts (root and /[teamSlug]) serve one team.
 export function buildMcpHandler(
   toolsets: ToolsetWithConnections[],
   wrappers: WrapperWithCredentials[] = [],
   instructions?: string,
+  opts: { endpoint?: string; teamScope?: string } = {},
 ) {
+  const endpoint = opts.endpoint ?? "/";
   const handler = createMcpHandler(
     (mcp) => {
       const server = mcp.server;
@@ -271,8 +285,11 @@ export function buildMcpHandler(
       });
     },
     { capabilities: { tools: {} }, instructions },
-    { streamableHttpEndpoint: "/" },
+    { streamableHttpEndpoint: endpoint },
   );
 
-  return withMcpAuth(handler, verifyToken, { required: true, requiredScopes: ["credentials:read"] });
+  return withMcpAuth(handler, makeVerifyToken(opts.teamScope), {
+    required: true,
+    requiredScopes: ["credentials:read"],
+  });
 }

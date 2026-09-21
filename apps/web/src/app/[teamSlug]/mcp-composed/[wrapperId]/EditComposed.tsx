@@ -13,6 +13,7 @@ import type { CredentialOption } from "../ComposedTable";
 import { DetailHeader } from "../../../DetailHeader";
 import { Page } from "../../../Page";
 import { StatusPill, type Tone } from "../../../StatusPill";
+import { useCurrentTeam } from "../../../TeamContext";
 import { timeAgo } from "@/lib/timeAgo";
 
 type ToolInfo = { name: string; description?: string };
@@ -35,15 +36,14 @@ function health(ok: boolean | null): { tone: Tone; label: string } {
 }
 
 export function EditComposed({
-  teamId,
   wrapper,
   credentials,
 }: {
-  teamId: string;
   wrapper: Wrapper;
   credentials: CredentialOption[];
 }) {
   const router = useRouter();
+  const { teamId, teamSlug } = useCurrentTeam();
   const { message } = App.useApp();
   const [form] = Form.useForm();
   const [pending, start] = useTransition();
@@ -85,7 +85,7 @@ export function EditComposed({
     startDelete(async () => {
       await deleteWrapper(teamId, wrapper.id);
       message.success("Composed MCP deleted");
-      router.push(`/${teamId}/mcp-composed`);
+      router.push(`/${teamSlug}/mcp-composed`);
     });
 
   const h = health(wrapper.lastTestOk);
@@ -93,14 +93,14 @@ export function EditComposed({
 
   return (
     <Page
-      breadcrumb={[{ title: "Composed MCPs", href: `/${teamId}/mcp-composed` }, { title: wrapper.name }]}
+      breadcrumb={[{ title: "Composed MCPs", href: `/${teamSlug}/mcp-composed` }, { title: wrapper.name }]}
     >
       <DetailHeader
         icon={<DeploymentUnitOutlined />}
         title={wrapper.name}
         subtitle={`${typeLabel(wrapper.type)} · ${credCount} ${credCount === 1 ? "credential" : "credentials"}`}
         tag={<StatusPill tone={h.tone} label={h.label} />}
-        backHref={`/${teamId}/mcp-composed`}
+        backHref={`/${teamSlug}/mcp-composed`}
         backLabel="All composed MCPs"
       />
 
@@ -138,7 +138,7 @@ export function EditComposed({
                     ? "Each QuickBooks credential adds a company (realm) this MCP can act on."
                     : (
                         <>
-                          No credentials yet — <Link href={`/${teamId}`}>add one</Link>.
+                          No credentials yet — <Link href={`/${teamSlug}`}>add one</Link>.
                         </>
                       )
                 }

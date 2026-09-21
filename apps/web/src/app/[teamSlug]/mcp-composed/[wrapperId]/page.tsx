@@ -1,20 +1,19 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { requireUser } from "@/lib/session";
-import { userInTeam } from "@/lib/access";
 import { isUuid } from "@/lib/ids";
+import { requireTeam } from "@/lib/team";
 import { EditComposed } from "./EditComposed";
 import type { CredentialOption } from "../ComposedTable";
 
 export default async function ComposedDetailPage({
   params,
 }: {
-  params: Promise<{ teamId: string; wrapperId: string }>;
+  params: Promise<{ teamSlug: string; wrapperId: string }>;
 }) {
-  const { teamId, wrapperId } = await params;
-  if (!isUuid(teamId) || !isUuid(wrapperId)) notFound();
-  const user = await requireUser();
-  if (!(await userInTeam(user.id, teamId))) notFound();
+  const { teamSlug, wrapperId } = await params;
+  if (!isUuid(wrapperId)) notFound();
+  const team = await requireTeam(teamSlug);
+  const teamId = team.id;
 
   const [wrapper, credentials] = await Promise.all([
     prisma.mcpWrapper.findUnique({
@@ -37,7 +36,6 @@ export default async function ComposedDetailPage({
 
   return (
     <EditComposed
-      teamId={teamId}
       wrapper={{
         id: wrapper.id,
         name: wrapper.name,

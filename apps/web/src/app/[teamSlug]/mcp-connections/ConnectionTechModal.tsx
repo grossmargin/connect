@@ -4,24 +4,24 @@ import { App, Button, Modal, Popconfirm, Spin, Tag, Typography } from "antd";
 import { EyeOutlined, SafetyCertificateOutlined } from "@ant-design/icons";
 import { useEffect, useState, useTransition } from "react";
 import { getConnectionCredentials } from "./actions";
+import { useCurrentTeam } from "../../TeamContext";
 
 type Summary = Record<string, unknown>;
 
 // Technical summary of what we store for a connection (tokens, client, claims).
 // Secrets are masked until the user reveals them, which is audit-logged.
 export function ConnectionTechModal({
-  teamId,
   connectionId,
   connectionName,
   open,
   onClose,
 }: {
-  teamId: string;
   connectionId: string;
   connectionName: string;
   open: boolean;
   onClose: () => void;
 }) {
+  const { teamId } = useCurrentTeam();
   const { message } = App.useApp();
   const [summary, setSummary] = useState<Summary | null>(null);
   const [revealed, setRevealed] = useState(false);

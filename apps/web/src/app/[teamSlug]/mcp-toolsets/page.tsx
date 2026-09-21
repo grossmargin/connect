@@ -1,15 +1,11 @@
-import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { requireUser } from "@/lib/session";
-import { userInTeam } from "@/lib/access";
-import { isUuid } from "@/lib/ids";
+import { requireTeam } from "@/lib/team";
 import { ToolsetsTable, type ToolsetRow, type ConnectionOption } from "./ToolsetsTable";
 
-export default async function McpToolsetsPage({ params }: { params: Promise<{ teamId: string }> }) {
-  const { teamId } = await params;
-  if (!isUuid(teamId)) notFound();
-  const user = await requireUser();
-  if (!(await userInTeam(user.id, teamId))) notFound();
+export default async function McpToolsetsPage({ params }: { params: Promise<{ teamSlug: string }> }) {
+  const { teamSlug } = await params;
+  const team = await requireTeam(teamSlug);
+  const teamId = team.id;
 
   const [toolsets, connections] = await Promise.all([
     prisma.mcpToolset.findMany({
@@ -40,5 +36,5 @@ export default async function McpToolsetsPage({ params }: { params: Promise<{ te
     lastTestedAt: t.lastTestedAt?.toISOString() ?? null,
   }));
 
-  return <ToolsetsTable teamId={teamId} toolsets={rows} connections={connections as ConnectionOption[]} />;
+  return <ToolsetsTable toolsets={rows} connections={connections as ConnectionOption[]} />;
 }

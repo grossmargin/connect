@@ -7,24 +7,24 @@ import { CredentialsTab, type Cred } from "./CredentialsTab";
 import { PropertiesTab } from "./PropertiesTab";
 import { DetailHeader } from "../../../DetailHeader";
 import { Page } from "../../../Page";
+import { useCurrentTeam } from "../../../TeamContext";
 
 const TABS = ["credentials", "properties"] as const;
 type TabKey = (typeof TABS)[number];
 
 export function VaultView({
-  teamId,
   vaultId,
   name,
   description,
   credentials,
 }: {
-  teamId: string;
   vaultId: string;
   name: string;
   description: string | null;
   credentials: Cred[];
 }) {
   const router = useRouter();
+  const { teamSlug } = useCurrentTeam();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
@@ -38,12 +38,12 @@ export function VaultView({
   };
 
   return (
-    <Page breadcrumb={[{ title: "Vaults", href: `/${teamId}` }, { title: name }]}>
+    <Page breadcrumb={[{ title: "Vaults", href: `/${teamSlug}` }, { title: name }]}>
       <DetailHeader
         icon={<FolderOpenOutlined />}
         title={name}
         subtitle={description || undefined}
-        backHref={`/${teamId}`}
+        backHref={`/${teamSlug}`}
         backLabel="All vaults"
       />
 
@@ -67,9 +67,7 @@ export function VaultView({
                 <SettingOutlined /> Properties
               </span>
             ),
-            children: (
-              <PropertiesTab teamId={teamId} vaultId={vaultId} name={name} description={description} />
-            ),
+            children: <PropertiesTab vaultId={vaultId} name={name} description={description} />,
           },
         ]}
       />

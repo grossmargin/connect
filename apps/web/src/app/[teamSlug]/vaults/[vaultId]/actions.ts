@@ -218,7 +218,7 @@ export async function createServiceAccount(
     const k = generateServiceAccountKey();
     raws.push(k.raw);
     await prisma.serviceAccountKey.create({
-      data: { serviceAccountId: sa.id, hash: k.hash, prefix: k.prefix },
+      data: { serviceAccountId: sa.id, hash: k.hash, hint: k.hint },
     });
   }
   revalidatePath(`/vaults/${vaultId}`);
@@ -234,7 +234,7 @@ export async function addServiceAccountKey(
 
   const k = generateServiceAccountKey();
   await prisma.serviceAccountKey.create({
-    data: { serviceAccountId, hash: k.hash, prefix: k.prefix },
+    data: { serviceAccountId, hash: k.hash, hint: k.hint },
   });
   revalidatePath(`/vaults`);
   return { key: k.raw };

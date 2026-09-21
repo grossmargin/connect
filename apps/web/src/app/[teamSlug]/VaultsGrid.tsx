@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { createVault } from "../actions";
 import { Page, PageIntro } from "../Page";
+import { useCurrentTeam } from "../TeamContext";
 import { timeAgo } from "@/lib/timeAgo";
 
 type Vault = {
@@ -16,8 +17,9 @@ type Vault = {
   updatedAt: string;
 };
 
-export function VaultsGrid({ teamId, vaults }: { teamId: string; vaults: Vault[] }) {
+export function VaultsGrid({ vaults }: { vaults: Vault[] }) {
   const router = useRouter();
+  const { teamSlug } = useCurrentTeam();
   const [open, setOpen] = useState(false);
 
   return (
@@ -36,7 +38,7 @@ export function VaultsGrid({ teamId, vaults }: { teamId: string; vaults: Vault[]
         {vaults.map((v) => (
           <button
             key={v.id}
-            onClick={() => router.push(`/${teamId}/vaults/${v.id}`)}
+            onClick={() => router.push(`/${teamSlug}/vaults/${v.id}`)}
             className="group flex cursor-pointer flex-col rounded-xl border border-gray-200 bg-white p-5 text-left transition hover:border-indigo-300 hover:shadow-sm"
           >
             <div className="flex items-start justify-between">
@@ -68,13 +70,14 @@ export function VaultsGrid({ teamId, vaults }: { teamId: string; vaults: Vault[]
         </button>
       </div>
 
-      <NewVaultModal teamId={teamId} open={open} onClose={() => setOpen(false)} />
+      <NewVaultModal open={open} onClose={() => setOpen(false)} />
     </Page>
   );
 }
 
-function NewVaultModal({ teamId, open, onClose }: { teamId: string; open: boolean; onClose: () => void }) {
+function NewVaultModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { message } = App.useApp();
+  const { teamId } = useCurrentTeam();
   const [form] = Form.useForm();
   const [pending, start] = useTransition();
 

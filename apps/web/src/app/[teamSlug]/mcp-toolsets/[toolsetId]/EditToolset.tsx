@@ -12,6 +12,7 @@ import type { ConnectionOption } from "../ToolsetsTable";
 import { DetailHeader } from "../../../DetailHeader";
 import { Page } from "../../../Page";
 import { StatusPill, type Tone } from "../../../StatusPill";
+import { useCurrentTeam } from "../../../TeamContext";
 import { timeAgo } from "@/lib/timeAgo";
 
 type ToolInfo = { name: string; description?: string };
@@ -33,15 +34,14 @@ function health(ok: boolean | null): { tone: Tone; label: string } {
 }
 
 export function EditToolset({
-  teamId,
   toolset,
   connections,
 }: {
-  teamId: string;
   toolset: Toolset;
   connections: ConnectionOption[];
 }) {
   const router = useRouter();
+  const { teamId, teamSlug } = useCurrentTeam();
   const { message } = App.useApp();
   const [form] = Form.useForm();
   const [pending, start] = useTransition();
@@ -83,7 +83,7 @@ export function EditToolset({
     startDelete(async () => {
       await deleteToolset(teamId, toolset.id);
       message.success("Federated MCP deleted");
-      router.push(`/${teamId}/mcp-toolsets`);
+      router.push(`/${teamSlug}/mcp-toolsets`);
     });
 
   const h = health(toolset.lastTestOk);
@@ -91,14 +91,14 @@ export function EditToolset({
 
   return (
     <Page
-      breadcrumb={[{ title: "Federated MCPs", href: `/${teamId}/mcp-toolsets` }, { title: toolset.name }]}
+      breadcrumb={[{ title: "Federated MCPs", href: `/${teamSlug}/mcp-toolsets` }, { title: toolset.name }]}
     >
       <DetailHeader
         icon={<AppstoreOutlined />}
         title={toolset.name}
         subtitle={`Federated · ${serverCount} ${serverCount === 1 ? "server" : "servers"}`}
         tag={<StatusPill tone={h.tone} label={h.label} />}
-        backHref={`/${teamId}/mcp-toolsets`}
+        backHref={`/${teamSlug}/mcp-toolsets`}
         backLabel="All federated MCPs"
       />
 
@@ -133,7 +133,7 @@ export function EditToolset({
                     ? "All servers must expose the same tools. Instructions are taken from the first."
                     : (
                         <>
-                          No connections yet — <Link href={`/${teamId}/mcp-connections`}>add one</Link>.
+                          No connections yet — <Link href={`/${teamSlug}/mcp-connections`}>add one</Link>.
                         </>
                       )
                 }

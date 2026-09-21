@@ -20,6 +20,7 @@ import { STATUS_TAG, type ConnectionStatus } from "../status";
 import { DetailHeader } from "../../../DetailHeader";
 import { Page } from "../../../Page";
 import { StatusPill } from "../../../StatusPill";
+import { useCurrentTeam } from "../../../TeamContext";
 import { timeAgo } from "@/lib/timeAgo";
 
 type ToolInfo = { name: string; description?: string };
@@ -46,8 +47,9 @@ function host(url: string): string {
   }
 }
 
-export function EditConnection({ teamId, connection }: { teamId: string; connection: Connection }) {
+export function EditConnection({ connection }: { connection: Connection }) {
   const router = useRouter();
+  const { teamId, teamSlug } = useCurrentTeam();
   const { message } = App.useApp();
   const searchParams = useSearchParams();
   const [form] = Form.useForm();
@@ -109,7 +111,7 @@ export function EditConnection({ teamId, connection }: { teamId: string; connect
     startDelete(async () => {
       await deleteConnection(teamId, connection.id);
       message.success("Connection deleted");
-      router.push(`/${teamId}/mcp-connections`);
+      router.push(`/${teamSlug}/mcp-connections`);
     });
 
   const tag = STATUS_TAG[connection.status];
@@ -117,7 +119,7 @@ export function EditConnection({ teamId, connection }: { teamId: string; connect
   return (
     <Page
       breadcrumb={[
-        { title: "MCP Connections", href: `/${teamId}/mcp-connections` },
+        { title: "MCP Connections", href: `/${teamSlug}/mcp-connections` },
         { title: connection.name },
       ]}
     >
@@ -126,7 +128,7 @@ export function EditConnection({ teamId, connection }: { teamId: string; connect
         title={connection.name}
         subtitle={`Connection · ${host(connection.url)}`}
         tag={<StatusPill tone={tag.tone} label={tag.label} />}
-        backHref={`/${teamId}/mcp-connections`}
+        backHref={`/${teamSlug}/mcp-connections`}
         backLabel="All connections"
       />
 
@@ -256,7 +258,7 @@ export function EditConnection({ teamId, connection }: { teamId: string; connect
                   {connection.toolsets.map((t) => (
                     <li key={t.id}>
                       <Link
-                        href={`/${teamId}/mcp-toolsets/${t.id}`}
+                        href={`/${teamSlug}/mcp-toolsets/${t.id}`}
                         className="flex items-center gap-2 text-gray-700 hover:text-indigo-600"
                       >
                         <AppstoreOutlined className="text-gray-400" />
@@ -289,7 +291,6 @@ export function EditConnection({ teamId, connection }: { teamId: string; connect
       </div>
 
       <ConnectionTechModal
-        teamId={teamId}
         connectionId={connection.id}
         connectionName={connection.name}
         open={techOpen}

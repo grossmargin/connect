@@ -16,11 +16,14 @@ export async function createVault(teamId: string, name: string, description: str
   if (!name.trim() || !teamId) return;
   if (!(await userInTeam(user.id, teamId))) return;
 
+  const team = await prisma.team.findUnique({ where: { id: teamId }, select: { slug: true } });
+  if (!team) return;
+
   const vault = await prisma.vault.create({
     data: { teamId, name: name.trim(), description: description.trim() || null },
   });
-  revalidatePath(`/${teamId}`);
-  redirect(`/${teamId}/vaults/${vault.id}`);
+  revalidatePath(`/${team.slug}`);
+  redirect(`/${team.slug}/vaults/${vault.id}`);
 }
 
 export async function doSignOut() {

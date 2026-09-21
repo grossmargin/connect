@@ -1,20 +1,19 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { requireUser } from "@/lib/session";
-import { userInTeam } from "@/lib/access";
 import { isUuid } from "@/lib/ids";
+import { requireTeam } from "@/lib/team";
 import { EditToolset } from "./EditToolset";
 import type { ConnectionOption } from "../ToolsetsTable";
 
 export default async function ToolsetDetailPage({
   params,
 }: {
-  params: Promise<{ teamId: string; toolsetId: string }>;
+  params: Promise<{ teamSlug: string; toolsetId: string }>;
 }) {
-  const { teamId, toolsetId } = await params;
-  if (!isUuid(teamId) || !isUuid(toolsetId)) notFound();
-  const user = await requireUser();
-  if (!(await userInTeam(user.id, teamId))) notFound();
+  const { teamSlug, toolsetId } = await params;
+  if (!isUuid(toolsetId)) notFound();
+  const team = await requireTeam(teamSlug);
+  const teamId = team.id;
 
   const [toolset, connections] = await Promise.all([
     prisma.mcpToolset.findUnique({
@@ -31,7 +30,6 @@ export default async function ToolsetDetailPage({
 
   return (
     <EditToolset
-      teamId={teamId}
       toolset={{
         id: toolset.id,
         name: toolset.name,

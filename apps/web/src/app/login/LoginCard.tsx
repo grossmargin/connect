@@ -28,6 +28,15 @@ export function LoginCard({ callbackUrl }: { callbackUrl?: string }) {
         >
           Continue with Google
         </Button>
+        <Typography.Paragraph type="secondary" className="!mt-4 !mb-0 text-xs">
+          <a href="https://grossmargin.io/privacy" target="_blank" rel="noreferrer">
+            Privacy Policy
+          </a>
+          {" · "}
+          <a href="https://grossmargin.io/terms" target="_blank" rel="noreferrer">
+            Terms of Service
+          </a>
+        </Typography.Paragraph>
       </Card>
     </div>
   );

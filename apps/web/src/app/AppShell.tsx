@@ -126,6 +126,26 @@ export function AppShell({
                   <DownOutlined className="text-gray-400" />
                 </button>
               </Dropdown>
+
+              <div className="mt-2 px-2 text-[11px] text-gray-400">
+                <a
+                  href="https://grossmargin.io/privacy"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  Privacy
+                </a>
+                {" · "}
+                <a
+                  href="https://grossmargin.io/terms"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  Terms
+                </a>
+              </div>
             </div>
           </div>
         </Sider>

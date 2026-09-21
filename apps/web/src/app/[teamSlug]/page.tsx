@@ -1,10 +1,15 @@
+import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { getTeamBySlug } from "@/lib/team";
 import { VaultsGrid } from "./VaultsGrid";
 
-export default async function TeamHomePage({ params }: { params: Promise<{ teamId: string }> }) {
-  const { teamId } = await params;
+export default async function TeamHomePage({ params }: { params: Promise<{ teamSlug: string }> }) {
+  const { teamSlug } = await params;
+  const team = await getTeamBySlug(teamSlug);
+  if (!team) notFound();
+
   const rows = await prisma.vault.findMany({
-    where: { teamId },
+    where: { teamId: team.id },
     orderBy: { name: "asc" },
     select: {
       id: true,
@@ -23,5 +28,5 @@ export default async function TeamHomePage({ params }: { params: Promise<{ teamI
     updatedAt: v.updatedAt.toISOString(),
   }));
 
-  return <VaultsGrid teamId={teamId} vaults={vaults} />;
+  return <VaultsGrid teamSlug={team.slug} vaults={vaults} />;
 }

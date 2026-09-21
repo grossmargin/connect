@@ -63,6 +63,9 @@ model VerificationToken {
 model Team {
   id        String   @id @default(uuid()) @db.Uuid
   name      String
+  // User-facing id used in URLs and as the per-team MCP mount (/[slug]).
+  // Letters, digits and underscore only. Backfilled to the team's uuid.
+  slug      String   @unique
   createdAt DateTime @default(now())
 
   memberships     TeamMembership[]
@@ -97,6 +100,8 @@ model TeamMembership {
   id        String   @id @default(uuid()) @db.Uuid
   userId    String   @db.Uuid
   teamId    String   @db.Uuid
+  // Free-form role string (no enum). Defaults to ADMIN.
+  role      String   @default("ADMIN")
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

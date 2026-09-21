@@ -5,7 +5,7 @@ import type { ColumnsType } from "antd/es/table";
 import { CodeOutlined, DeleteOutlined, EditOutlined, PlusOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { createConnection, createHeadersConnection, deleteConnection } from "./actions";
+import { createConnection, createHeadersConnection, deleteConnection, startAuthorize } from "./actions";
 import { ConnectionTechModal } from "./ConnectionTechModal";
 import { STATUS_TAG, type ConnectionStatus } from "./status";
 import { CopyId } from "../../CopyId";
@@ -190,19 +190,38 @@ function NewConnectionModal({ open, onClose }: { open: boolean; onClose: () => v
   const submit = () =>
     form.validateFields().then((v) =>
       start(async () => {
-        const r =
-          mode === "HEADERS"
-            ? await createHeadersConnection(teamId, v.name, v.url, v.headers ?? "")
-            : await createConnection(teamId, v.name, v.url);
+        if (mode === "HEADERS") {
+          const r = await createHeadersConnection(teamId, v.name, v.url, v.headers ?? "");
+          if ("error" in r) {
+            message.error(r.error);
+            return;
+          }
+          message.success("Connection added");
+          onClose();
+          form.resetFields();
+          setMode("DCR");
+          router.push(`/${teamSlug}/mcp-connections/${r.id}`);
+          return;
+        }
+
+        const r = await createConnection(teamId, v.name, v.url);
         if ("error" in r) {
           message.error(r.error);
           return;
         }
-        message.success(mode === "HEADERS" ? "Connection added" : "Connected and registered");
+
+        // Go straight into the OAuth flow: register a fresh client and redirect
+        // to the provider. On any failure, land on the connection page instead.
+        const auth = await startAuthorize(teamId, r.id);
         onClose();
         form.resetFields();
         setMode("DCR");
-        router.push(`/${teamSlug}/mcp-connections/${r.id}`);
+        if ("error" in auth) {
+          message.error(auth.error);
+          router.push(`/${teamSlug}/mcp-connections/${r.id}`);
+          return;
+        }
+        window.location.assign(auth.url);
       }),
     );
 
@@ -211,7 +230,7 @@ function NewConnectionModal({ open, onClose }: { open: boolean; onClose: () => v
       title="New connection"
       open={open}
       onCancel={onClose}
-      okText={mode === "HEADERS" ? "Add" : "Verify & add"}
+      okText={mode === "HEADERS" ? "Add" : "Continue to provider"}
       confirmLoading={pending}
       onOk={submit}
       destroyOnHidden
@@ -221,7 +240,7 @@ function NewConnectionModal({ open, onClose }: { open: boolean; onClose: () => v
         value={mode}
         onChange={setMode}
         options={[
-          { label: "OAuth (auto-register)", value: "DCR" },
+          { label: "OAuth", value: "DCR" },
           { label: "Static headers", value: "HEADERS" },
         ]}
         className="!mb-3"
@@ -229,7 +248,7 @@ function NewConnectionModal({ open, onClose }: { open: boolean; onClose: () => v
       <Typography.Paragraph type="secondary" className="!text-sm">
         {mode === "HEADERS"
           ? "Send fixed HTTP headers (e.g. a bearer token) with every request. Use this for servers that authenticate with a token/PAT instead of OAuth. Headers are encrypted; nothing is verified until you run Test."
-          : "We verify the URL and register this app with the server (Dynamic Client Registration)."}
+          : "We check the server supports OAuth, then send you to the provider to authorize. A client is registered fresh at that step."}
       </Typography.Paragraph>
       <Form form={form} layout="vertical" requiredMark={false} preserve={false}>
         <Form.Item name="name" label="Name" rules={[{ required: true }]}>

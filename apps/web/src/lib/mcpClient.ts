@@ -1,7 +1,6 @@
 import "server-only";
 import {
   discoverOAuthServerInfo,
-  registerClient,
   startAuthorization,
   exchangeAuthorization,
   refreshAuthorization,
@@ -43,34 +42,67 @@ async function discover(url: string) {
   };
 }
 
-// Verifies the URL and that the server supports Dynamic Client Registration,
-// then registers this app as a client. Returns credentials without tokens.
-export async function registerConnection(url: string, name: string): Promise<DcrCredentials> {
+// Verifies the URL resolves an OAuth server that advertises Dynamic Client
+// Registration. Used before creating a connection; registers nothing.
+export async function assertDcrSupported(url: string): Promise<void> {
   const d = await discover(url);
   if (!d.metadata?.registration_endpoint) {
     throw new Error("Server does not advertise a Dynamic Client Registration endpoint.");
   }
-  const client = await registerClient(d.authorizationServerUrl, {
-    metadata: d.metadata,
-    scope: d.scope,
-    fetchFn: timeoutFetch,
-    clientMetadata: {
+}
+
+// Registers a fresh OAuth client (RFC 7591). Done via raw fetch (not the SDK)
+// so we can keep the RFC 7592 management creds the SDK drops. Returns
+// credentials without tokens. A client is short-lived: a new one is minted at
+// each authorize, so a half-provisioned client (e.g. Brex's DCR that does not
+// wire the redirect into its Okta app) heals on the next attempt.
+export async function registerConnection(url: string, name: string): Promise<DcrCredentials> {
+  const d = await discover(url);
+  const endpoint = d.metadata?.registration_endpoint;
+  if (!endpoint) throw new Error("Server does not advertise a Dynamic Client Registration endpoint.");
+
+  const res = await timeoutFetch(endpoint, {
+    method: "POST",
+    headers: { "content-type": "application/json", accept: "application/json" },
+    body: JSON.stringify({
       client_name: `Grossmargin Connect: ${name}`,
       redirect_uris: [callbackUrl()],
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
       token_endpoint_auth_method: "none",
-      scope: d.scope,
-    },
+      ...(d.scope ? { scope: d.scope } : {}),
+    }),
   });
+  const body = await res.json().catch(() => null);
+  if (!res.ok || !body?.client_id) {
+    const detail = body?.error_description ?? body?.error ?? `HTTP ${res.status}`;
+    throw new Error(`Dynamic Client Registration failed: ${detail}`);
+  }
   return {
     authType: "DCR",
-    clientId: client.client_id,
-    clientSecret: client.client_secret,
+    clientId: body.client_id,
+    clientSecret: body.client_secret,
     authorizationServerUrl: d.authorizationServerUrl,
     resource: d.resource,
     scope: d.scope,
+    registrationClientUri: body.registration_client_uri,
+    registrationAccessToken: body.registration_access_token,
   };
+}
+
+// Best-effort de-registration (RFC 7592). No-op unless the server returned
+// management creds at registration. Never throws — an orphaned public client is
+// harmless, and we must not block re-authorization on cleanup.
+export async function deregisterConnection(creds: DcrCredentials): Promise<void> {
+  if (!creds.registrationClientUri || !creds.registrationAccessToken) return;
+  try {
+    await timeoutFetch(creds.registrationClientUri, {
+      method: "DELETE",
+      headers: { authorization: `Bearer ${creds.registrationAccessToken}` },
+    });
+  } catch {
+    // ignore
+  }
 }
 
 // Builds the authorization redirect URL and returns the PKCE verifier to persist.

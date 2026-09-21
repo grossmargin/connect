@@ -15,6 +15,8 @@ const oauthTokens = {
 };
 
 // DCR: we self-registered an OAuth client (RFC 7591) and run the auth-code flow.
+// A fresh client is minted at each authorize, so these creds only exist once a
+// connection has been (re-)registered; a PENDING connection stores none.
 export const dcrCredentials = z.object({
   authType: z.literal("DCR"),
   clientId: z.string(),
@@ -22,6 +24,10 @@ export const dcrCredentials = z.object({
   authorizationServerUrl: z.string().optional(),
   resource: z.string().optional(),
   scope: z.string().optional(),
+  // RFC 7592 client-management creds, when the server returns them. Let us
+  // de-register the previous client before minting a new one.
+  registrationClientUri: z.string().optional(),
+  registrationAccessToken: z.string().optional(),
   ...oauthTokens,
 });
 export type DcrCredentials = z.infer<typeof dcrCredentials>;

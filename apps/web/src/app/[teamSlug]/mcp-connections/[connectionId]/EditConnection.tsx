@@ -1,11 +1,12 @@
 "use client";
 
-import { Alert, App, Button, Card, Form, Input, List, Typography } from "antd";
+import { Alert, App, Button, Card, Dropdown, Form, Input, List, Typography } from "antd";
 import {
   ApiOutlined,
   AppstoreOutlined,
   ArrowRightOutlined,
   CodeOutlined,
+  DownOutlined,
   SafetyOutlined,
   ThunderboltOutlined,
 } from "@ant-design/icons";
@@ -81,9 +82,11 @@ export function EditConnection({ connection }: { connection: Connection }) {
       }),
     );
 
-  const authorize = () =>
+  // rotate=false reuses the existing client (non-destructive); rotate=true
+  // registers a fresh one, de-registering the old. See startAuthorize.
+  const authorize = (rotate: boolean) =>
     startAuth(async () => {
-      const r = await startAuthorize(teamId, connection.id);
+      const r = await startAuthorize(teamId, connection.id, rotate);
       if ("error" in r) {
         message.error(r.error);
         return;
@@ -231,11 +234,40 @@ export function EditConnection({ connection }: { connection: Connection }) {
               >
                 Test
               </Button>
-              {!isHeaders && (
-                <Button icon={<SafetyOutlined />} loading={authorizing} onClick={authorize} className="flex-1">
-                  {connection.status === "CONNECTED" ? "Re-authorize" : "Authorize"}
-                </Button>
-              )}
+              {!isHeaders &&
+                (connection.status === "PENDING" ? (
+                  // No client registered yet: the only action is to register + authorize.
+                  <Button
+                    icon={<SafetyOutlined />}
+                    loading={authorizing}
+                    onClick={() => authorize(true)}
+                    className="flex-1"
+                  >
+                    Authorize
+                  </Button>
+                ) : (
+                  <Dropdown.Button
+                    className="flex-1"
+                    icon={<DownOutlined />}
+                    loading={authorizing}
+                    onClick={() => authorize(false)}
+                    menu={{
+                      items: [
+                        {
+                          key: "rotate",
+                          icon: <SafetyOutlined />,
+                          label:
+                            connection.status === "ERROR"
+                              ? "Rotate client (fixes a broken connection)"
+                              : "Rotate client & authorize",
+                          onClick: () => authorize(true),
+                        },
+                      ],
+                    }}
+                  >
+                    <SafetyOutlined /> {connection.status === "CONNECTED" ? "Re-authorize" : "Authorize"}
+                  </Dropdown.Button>
+                ))}
             </div>
             <Button
               icon={<CodeOutlined />}

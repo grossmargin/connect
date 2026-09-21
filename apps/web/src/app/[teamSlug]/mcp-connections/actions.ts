@@ -12,7 +12,9 @@ import { audit } from "@/lib/audit";
 import { kvSet } from "@/lib/kv";
 import { packCredentials, readCredentials, parseHeaderText } from "@/lib/mcpCredentials";
 import {
+  assertDcrSupported,
   registerConnection,
+  deregisterConnection,
   buildAuthorization,
   resolveAuthHeaders,
   probeServer,
@@ -46,11 +48,12 @@ export async function createConnection(
     return { error: "URL is not valid." };
   }
 
-  let creds;
+  // Only check the server supports DCR in principle. The client is minted at
+  // authorize time, not here.
   try {
-    creds = await registerConnection(trimmedUrl, trimmedName);
+    await assertDcrSupported(trimmedUrl);
   } catch (e) {
-    return { error: `Could not connect / register: ${errorMessage(e)}` };
+    return { error: `Could not connect: ${errorMessage(e)}` };
   }
 
   try {
@@ -60,9 +63,8 @@ export async function createConnection(
         name: trimmedName,
         slug: slugify(trimmedName),
         url: trimmedUrl,
-        authType: creds.authType,
-        status: "REGISTERED",
-        encryptedCredentials: packCredentials(creds),
+        authType: "DCR",
+        status: "PENDING",
         createdById: user.id,
       },
     });
@@ -164,22 +166,45 @@ export async function deleteConnection(teamId: string, connectionId: string): Pr
   revalidatePath(`/${teamId}/mcp-connections`);
 }
 
-// Starts the OAuth authorization-code flow. Returns the URL to send the user to.
-// The PKCE verifier is held in the KV store keyed by an unguessable state token.
+// Starts the OAuth authorization-code flow and returns the URL to send the user
+// to. The PKCE verifier is held in the KV store keyed by an unguessable state
+// token.
+//
+// `rotate` picks the client:
+//   false - reuse the existing DCR client. Non-destructive: the callback only
+//           writes creds on success, so abandoning the flow keeps the current
+//           token. Fails if the connection has no client yet.
+//   true  - de-register the old client (when possible) and register a fresh
+//           one. Fixes a stale or half-provisioned client (e.g. Brex's DCR that
+//           does not wire the redirect into its Okta app).
+// A connection with no client yet (PENDING) always registers, regardless.
 export async function startAuthorize(
   teamId: string,
   connectionId: string,
+  rotate = false,
 ): Promise<{ url: string } | { error: string }> {
   await requireMember(teamId);
   const conn = await prisma.mcpConnection.findUnique({ where: { id: connectionId } });
   if (!conn || conn.teamId !== teamId) return { error: "not found" };
+  if (conn.authType !== "DCR") return { error: "Connection does not use OAuth." };
 
   try {
-    const creds = readCredentials(conn.encryptedCredentials);
-    if (!creds || creds.authType !== "DCR") return { error: "Connection is not registered." };
+    const previous = readCredentials(conn.encryptedCredentials);
+    const existing = previous?.authType === "DCR" ? previous : null;
+
+    let creds = existing;
+    if (rotate || !existing) {
+      if (existing) await deregisterConnection(existing);
+      creds = await registerConnection(conn.url, conn.name);
+      await prisma.mcpConnection.update({
+        where: { id: conn.id },
+        data: { status: "REGISTERED", lastError: null, encryptedCredentials: packCredentials(creds) },
+      });
+      revalidatePath(`/${teamId}/mcp-connections/${connectionId}`);
+    }
 
     const state = randomBytes(24).toString("base64url");
-    const { authorizationUrl, codeVerifier } = await buildAuthorization(conn, creds, state);
+    const { authorizationUrl, codeVerifier } = await buildAuthorization(conn, creds!, state);
     await kvSet(teamId, OAUTH_STATE_NS, state, { connectionId, codeVerifier }, OAUTH_STATE_TTL_SECONDS);
     return { url: authorizationUrl };
   } catch (e) {

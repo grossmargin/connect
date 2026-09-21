@@ -109,6 +109,28 @@ export async function updateCredential(credentialId: string, formData: FormData)
   revalidatePath(`/${cred.vault.teamId}/vaults/${cred.vault.id}`);
 }
 
+export async function deleteCredential(credentialId: string): Promise<{ error: string } | void> {
+  const user = await requireUser();
+  const cred = await prisma.credential.findUnique({
+    where: { id: credentialId },
+    include: { vault: { select: { id: true, teamId: true } } },
+  });
+  if (!cred || !(await userInTeam(user.id, cred.vault.teamId))) return { error: "not found" };
+
+  await prisma.credential.delete({ where: { id: credentialId } });
+  await audit({
+    actorType: "USER",
+    actorId: user.id,
+    action: "DELETE_CREDENTIAL",
+    source: "UI",
+    teamId: cred.vault.teamId,
+    vaultId: cred.vault.id,
+    credentialId,
+    ...(await reqCtx()),
+  });
+  revalidatePath(`/${cred.vault.teamId}/vaults/${cred.vault.id}`);
+}
+
 export async function updateVault(
   teamId: string,
   vaultId: string,

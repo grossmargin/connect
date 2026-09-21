@@ -1,10 +1,10 @@
 "use client";
 
-import { App, Button, Empty, Form, Input, List, Modal, Select, Tag, Typography } from "antd";
-import { EditOutlined, EyeOutlined, KeyOutlined, PlusOutlined } from "@ant-design/icons";
+import { App, Button, Empty, Form, Input, List, Modal, Popconfirm, Select, Tag, Typography } from "antd";
+import { DeleteOutlined, EditOutlined, EyeOutlined, KeyOutlined, PlusOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { createCredential, updateCredential, revealCredential } from "./actions";
+import { createCredential, updateCredential, revealCredential, deleteCredential } from "./actions";
 
 export type Cred = {
   id: string;
@@ -48,7 +48,7 @@ export function CredentialsTab({ vaultId, credentials }: { vaultId: string; cred
           bordered
           dataSource={credentials}
           renderItem={(c) => (
-            <List.Item actions={[<RevealButton key="r" cred={c} />, <Button key="e" type="link" icon={<EditOutlined />} onClick={() => openEdit(c)}>Edit</Button>]}>
+            <List.Item actions={[<RevealButton key="r" cred={c} />, <Button key="e" type="link" icon={<EditOutlined />} onClick={() => openEdit(c)}>Edit</Button>, <DeleteButton key="d" cred={c} />]}>
               <List.Item.Meta
                 avatar={<KeyOutlined style={{ fontSize: 18 }} aria-hidden />}
                 title={
@@ -106,6 +106,37 @@ function RevealButton({ cred }: { cred: Cred }) {
         </Typography.Paragraph>
       </Modal>
     </>
+  );
+}
+
+function DeleteButton({ cred }: { cred: Cred }) {
+  const { message } = App.useApp();
+  const router = useRouter();
+  const [pending, start] = useTransition();
+
+  const remove = () =>
+    start(async () => {
+      const r = await deleteCredential(cred.id);
+      if (r && "error" in r) {
+        message.error(r.error);
+        return;
+      }
+      message.success("Credential deleted");
+      router.refresh();
+    });
+
+  return (
+    <Popconfirm
+      title="Delete this credential?"
+      description="This cannot be undone."
+      okText="Delete"
+      okButtonProps={{ danger: true }}
+      onConfirm={remove}
+    >
+      <Button type="link" danger icon={<DeleteOutlined />} loading={pending}>
+        Delete
+      </Button>
+    </Popconfirm>
   );
 }
 

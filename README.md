@@ -111,7 +111,7 @@ docker build -t grossmargin-connect .
 docker run -p 3000:3000 --env-file apps/web/.env grossmargin-connect
 ```
 
-For local development, `docker-compose.yml` brings up Postgres.
+See [Develop](#develop) for running it locally.
 
 ### First run: create a team and sign in
 
@@ -136,7 +136,7 @@ For local development, `docker-compose.yml` brings up Postgres.
 ```
 bun install
 cp apps/web/.env.example apps/web/.env   # fill in values
-docker compose up -d db
+docker run -d --name connect-db -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=credentials -p 5432:5432 postgres:16
 bun run db:push
 bun run dev
 ```

@@ -84,12 +84,16 @@ Copy `apps/web/.env.example` to `apps/web/.env` (local), or set these in your ho
 
 ### Deploy on Vercel
 
-1. Import the repo into Vercel and set the **Root Directory** to `apps/web`.
-2. Add the [environment variables](#environment-variables).
-3. Deploy. The build command (`apps/web/vercel.json`) runs `prisma db push` before `next build`, so the
-   schema is applied on every deploy.
+1. Import the repo into Vercel.
+2. Set the **Root Directory** to `apps/web`. This is the only non-default setting — the repo is a
+   monorepo and the app lives in `apps/web`. Keep "Include files outside the root directory in the Build
+   Step" enabled so the build can read the workspace root (`package.json`, `bun.lock`).
 
-<!-- TODO: Vercel setup screenshot -->
+   ![Vercel Root Directory](docs/screenshots/vercel-root-directory.png)
+
+3. Add the [environment variables](#environment-variables).
+4. Deploy. The build command (`apps/web/vercel.json`) runs `prisma db push` before `next build`, so the
+   schema is applied on every deploy.
 
 ### Deploy with Docker
 

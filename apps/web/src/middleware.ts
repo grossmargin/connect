@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { isReservedSlug } from "@/lib/reservedSlugs";
+import { isReservedSlug, isTeamSubroute } from "@/lib/reservedSlugs";
 
 // `/<teamSlug>` is both a browser page (the team dashboard) and, for MCP
 // clients, the per-team MCP mount — so we route MCP requests on that bare path
@@ -21,14 +21,23 @@ export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const segments = pathname.split("/").filter(Boolean);
 
-  // Only the bare, single-segment `/<slug>` is an ambiguous UI/MCP path.
-  if (segments.length !== 1) return NextResponse.next();
-  const seg = segments[0];
-  if (isReservedSlug(seg)) return NextResponse.next();
-  if (!isMcpRequest(req)) return NextResponse.next();
+  // `/<teamSlug>` (default scope) and `/<teamSlug>/<scopeSlug>` (a named
+  // published scope) both double as UI paths, so we only reroute the MCP
+  // requests among them to the MCP handlers.
+  let target: string | null = null;
+  if (segments.length === 1) {
+    const [teamSlug] = segments;
+    if (!isReservedSlug(teamSlug) && isMcpRequest(req)) target = `/mcp/${teamSlug}`;
+  } else if (segments.length === 2) {
+    const [teamSlug, scopeSlug] = segments;
+    if (!isReservedSlug(teamSlug) && !isTeamSubroute(scopeSlug) && isMcpRequest(req)) {
+      target = `/mcp/${teamSlug}/${scopeSlug}`;
+    }
+  }
+  if (!target) return NextResponse.next();
 
   const url = req.nextUrl.clone();
-  url.pathname = `/mcp/${seg}`;
+  url.pathname = target;
   return NextResponse.rewrite(url);
 }
 

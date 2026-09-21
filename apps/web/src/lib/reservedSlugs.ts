@@ -22,3 +22,18 @@ export const RESERVED_SLUGS = new Set([
 export function isReservedSlug(slug: string): boolean {
   return RESERVED_SLUGS.has(slug) || slug.startsWith(".well-known");
 }
+
+// Second-segment names under /[teamSlug] that are UI pages, so a published-scope
+// slug must not collide with them (a scope is served at /[teamSlug]/[slug]).
+export const TEAM_SUBROUTES = new Set([
+  "vaults",
+  "mcp-connections",
+  "mcp-toolsets",
+  "mcp-composed",
+  "published",
+  "settings",
+]);
+
+export function isTeamSubroute(slug: string): boolean {
+  return TEAM_SUBROUTES.has(slug);
+}

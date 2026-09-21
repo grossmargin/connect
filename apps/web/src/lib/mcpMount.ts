@@ -1,29 +1,26 @@
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { buildMcpHandler } from "@/lib/mcpServer";
 import { renderRootInstructions } from "@/lib/mcpInstructions";
+import { resolveScope } from "@/lib/scopes";
 
-// Serve the root MCP server scoped to a single team. Loads the team's toolsets,
-// composed wrappers and vaults, renders instructions, and builds a handler whose
-// endpoint matches the incoming request path (so it works behind a rewrite) and
-// whose principal is narrowed to `teamId`.
-export async function serveTeamMcp(req: Request, teamId: string) {
-  const [toolsets, wrappers, vaults] = await Promise.all([
-    prisma.mcpToolset.findMany({
-      where: { teamId },
-      orderBy: { name: "asc" },
-      include: { connections: true },
-    }),
-    prisma.mcpWrapper.findMany({
-      where: { teamId },
-      orderBy: { name: "asc" },
-      include: { credentials: true },
-    }),
-    prisma.vault.findMany({
-      where: { teamId },
-      orderBy: { name: "asc" },
-      select: { name: true, description: true },
-    }),
-  ]);
+// Serve the MCP server for one team's published scope. With no `scopeSlug` this
+// is the team's default scope (served at / and /[teamSlug]); with a slug it is
+// the named scope published at /[teamSlug]/[slug]. Only the scope's toolsets are
+// exposed. The handler endpoint matches the incoming path (so it works behind a
+// middleware rewrite) and the principal is narrowed to `teamId`.
+export async function serveTeamMcp(req: Request, teamId: string, scopeSlug?: string) {
+  const scope = await resolveScope(teamId, scopeSlug);
+  if (!scope) {
+    return NextResponse.json({ error: "unknown scope" }, { status: 404 });
+  }
+
+  const toolsets = [...scope.toolsets].sort((a, b) => a.name.localeCompare(b.name));
+  const vaults = await prisma.vault.findMany({
+    where: { teamId },
+    orderBy: { name: "asc" },
+    select: { name: true, description: true },
+  });
 
   const instructions = renderRootInstructions(
     toolsets.map((t) => ({
@@ -32,11 +29,11 @@ export async function serveTeamMcp(req: Request, teamId: string) {
       tenants: t.connections.map((c) => ({ id: c.slug, name: c.name })),
     })),
     vaults,
-    wrappers.map((w) => ({ name: w.name, slug: w.slug, type: w.type })),
+    [],
   );
 
   const endpoint = new URL(req.url).pathname;
-  return buildMcpHandler(toolsets, wrappers, instructions, { endpoint, teamScope: teamId })(req);
+  return buildMcpHandler(toolsets, [], instructions, { endpoint, teamScope: teamId })(req);
 }
 
 // A handler that requires a bearer but serves nothing — used when we cannot pick

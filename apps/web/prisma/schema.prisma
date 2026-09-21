@@ -74,7 +74,29 @@ model Team {
   mcpConnections  McpConnection[]
   mcpToolsets     McpToolset[]
   mcpWrappers     McpWrapper[]
+  mcpScopes       McpScope[]
   kvEntries       KeyValueStore[]
+}
+
+// A "published MCP": a named subset of the team's toolsets (Federated MCPs)
+// exposed at an MCP endpoint. The default scope (slug "") is served at the team
+// root (/ and /[teamSlug]); a named scope is served at /[teamSlug]/[slug].
+model McpScope {
+  id        String   @id @default(uuid()) @db.Uuid
+  teamId    String   @db.Uuid
+  name      String
+  // Path segment this scope is published at. Empty for the default scope.
+  // Letters, digits and underscore only, unique per team.
+  slug      String
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  team     Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  toolsets McpToolset[] @relation("McpScopeToolsets")
+
+  @@unique([teamId, slug])
+  @@index([teamId])
 }
 
 // Generic, untyped store for cache and transient state (namespaced per team).
@@ -254,6 +276,7 @@ model McpToolset {
 
   team        Team            @relation(fields: [teamId], references: [id], onDelete: Cascade)
   connections McpConnection[] @relation("McpToolsetConnections")
+  scopes      McpScope[]      @relation("McpScopeToolsets")
 
   @@unique([teamId, slug])
   @@index([teamId])

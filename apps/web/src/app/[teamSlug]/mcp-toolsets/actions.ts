@@ -10,6 +10,7 @@ import { slugify } from "@/lib/slug";
 import { readCredentials, packCredentials } from "@/lib/mcpCredentials";
 import { resolveAuthHeaders, type ToolInfo } from "@/lib/mcpClient";
 import { McpAggregator, type AggregateMember } from "@/lib/mcpAggregator";
+import { getOrCreateDefaultScope } from "@/lib/scopes";
 
 function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : "Unexpected error";
@@ -41,6 +42,9 @@ export async function createToolset(
   if (!trimmedName) return { error: "Name is required." };
 
   const ids = await teamConnectionIds(teamId, connectionIds);
+  // New Federated MCPs are published at the team root by default, i.e. added to
+  // the Default scope. Named scopes stay curated subsets.
+  const defaultScope = await getOrCreateDefaultScope(teamId);
   try {
     const toolset = await prisma.mcpToolset.create({
       data: {
@@ -49,9 +53,11 @@ export async function createToolset(
         slug: slugify(trimmedName),
         createdById: user.id,
         connections: { connect: ids.map((id) => ({ id })) },
+        scopes: { connect: { id: defaultScope.id } },
       },
     });
     revalidatePath(`/${teamId}/mcp-toolsets`);
+    revalidatePath(`/${teamId}/published`);
     return { id: toolset.id };
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {

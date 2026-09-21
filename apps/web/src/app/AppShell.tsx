@@ -5,12 +5,12 @@ import type { MenuProps } from "antd";
 import {
   ApiOutlined,
   AppstoreOutlined,
-  DeploymentUnitOutlined,
   DownOutlined,
   FolderOutlined,
   LogoutOutlined,
   SafetyCertificateOutlined,
   SettingOutlined,
+  ShareAltOutlined,
 } from "@ant-design/icons";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -48,7 +48,7 @@ export function AppShell({
   teamName: string;
   userName?: string | null;
   email?: string | null;
-  counts: { connections: number; toolsets: number; wrappers: number };
+  counts: { connections: number; toolsets: number; scopes: number };
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -70,9 +70,9 @@ export function AppShell({
       label: <Link href={`${base}/mcp-toolsets`}>{navLabel("Federated MCPs", counts.toolsets)}</Link>,
     },
     {
-      key: `${base}/mcp-composed`,
-      icon: <DeploymentUnitOutlined />,
-      label: <Link href={`${base}/mcp-composed`}>{navLabel("Composed MCPs", counts.wrappers)}</Link>,
+      key: `${base}/published`,
+      icon: <ShareAltOutlined />,
+      label: <Link href={`${base}/published`}>{navLabel("Published MCPs", counts.scopes)}</Link>,
     },
     {
       key: `${base}/settings`,

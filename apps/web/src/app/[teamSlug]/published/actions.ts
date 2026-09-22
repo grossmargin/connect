@@ -23,6 +23,16 @@ async function teamConnectionIds(teamId: string, ids: string[]): Promise<string[
   return rows.map((r) => r.id);
 }
 
+// Keep only vault ids that belong to this team.
+async function teamVaultIds(teamId: string, ids: string[]): Promise<string[]> {
+  if (ids.length === 0) return [];
+  const rows = await prisma.vault.findMany({
+    where: { teamId, id: { in: ids } },
+    select: { id: true },
+  });
+  return rows.map((r) => r.id);
+}
+
 async function revalidate(teamId: string) {
   const t = await prisma.team.findUnique({ where: { id: teamId }, select: { slug: true } });
   if (t) revalidatePath(`/${t.slug}/published`);
@@ -89,7 +99,7 @@ export async function updateScope(
     select: { teamId: true, isDefault: true },
   });
   if (!scope || scope.teamId !== teamId) return { error: "not found" };
-  if (scope.isDefault) return { error: "The default Published MCP's id is fixed." };
+  if (scope.isDefault) return { error: "The default bundle's id is fixed." };
 
   const trimmed = name.trim();
   if (!trimmed) return { error: "Name is required." };
@@ -167,9 +177,31 @@ export async function deleteScope(
     select: { teamId: true, isDefault: true },
   });
   if (!scope || scope.teamId !== teamId) return { error: "not found" };
-  if (scope.isDefault) return { error: "The default Published MCP can't be deleted." };
+  if (scope.isDefault) return { error: "The default bundle can't be deleted." };
 
   await prisma.mcpScope.delete({ where: { id: scopeId } });
+  await revalidate(teamId);
+  return { ok: true };
+}
+
+// Set which vaults a bundle exposes. `mode` is "ALL" (every team vault minus
+// `vaultIds`, i.e. exceptions) or "LIST" (only `vaultIds`).
+export async function updateScopeVaults(
+  teamId: string,
+  scopeId: string,
+  mode: "ALL" | "LIST",
+  vaultIds: string[],
+): Promise<{ error: string } | { ok: true }> {
+  if (!(await requireMember(teamId))) return { error: "not found" };
+  const scope = await prisma.mcpScope.findUnique({ where: { id: scopeId }, select: { teamId: true } });
+  if (!scope || scope.teamId !== teamId) return { error: "not found" };
+  if (mode !== "ALL" && mode !== "LIST") return { error: "Invalid mode." };
+
+  const ids = await teamVaultIds(teamId, vaultIds);
+  await prisma.mcpScope.update({
+    where: { id: scopeId },
+    data: { vaultMode: mode, vaults: { set: ids.map((id) => ({ id })) } },
+  });
   await revalidate(teamId);
   return { ok: true };
 }

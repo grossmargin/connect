@@ -6,7 +6,14 @@ import {
   type Tool,
   type CallToolResult,
 } from "@modelcontextprotocol/sdk/types.js";
-import { resolvePrincipal, getVaults, getCredentials, viewCredential, type Principal } from "@/lib/server/mcp";
+import {
+  resolvePrincipal,
+  getVaults,
+  getCredentials,
+  viewCredential,
+  type Principal,
+  type VaultFilter,
+} from "@/lib/server/mcp";
 import { connectionStatusReport } from "@/lib/server/mcpStatus";
 import { logMcpCall } from "@/lib/server/mcpLog";
 import { text, errorResult, resultText, headerValue } from "@/lib/server/mcpToolShared";
@@ -114,16 +121,23 @@ async function runCredentialTool(
   name: string,
   args: Record<string, unknown>,
   headers: Record<string, string | string[]> | undefined,
+  vaultFilter?: VaultFilter,
 ): Promise<CallToolResult> {
-  if (name === "get_vaults") return json(await getVaults(p));
-  if (name === "get_credentials") return json(await getCredentials(p, args.vaultId as string | undefined));
+  if (name === "get_vaults") return json(await getVaults(p, vaultFilter));
+  if (name === "get_credentials")
+    return json(await getCredentials(p, args.vaultId as string | undefined, vaultFilter));
   // view_credential — audited inside viewCredential.
   const credentialId = String(args.credentialId ?? "");
   if (!credentialId) return errorResult("credentialId is required.");
-  const cred = await viewCredential(p, credentialId, {
-    ip: headerValue(headers, "x-forwarded-for") ?? null,
-    userAgent: headerValue(headers, "user-agent") ?? null,
-  });
+  const cred = await viewCredential(
+    p,
+    credentialId,
+    {
+      ip: headerValue(headers, "x-forwarded-for") ?? null,
+      userAgent: headerValue(headers, "user-agent") ?? null,
+    },
+    vaultFilter,
+  );
   return cred ? json(cred) : errorResult("Credential not found.");
 }
 
@@ -139,9 +153,10 @@ export function buildMcpHandler(
   connections: McpConnection[] = [],
   wrappers: WrapperWithCredentials[] = [],
   instructions?: string,
-  opts: { endpoint?: string; teamScope?: string } = {},
+  opts: { endpoint?: string; teamScope?: string; vaultFilter?: VaultFilter } = {},
 ) {
   const endpoint = opts.endpoint ?? "/";
+  const vaultFilter = opts.vaultFilter;
   // The team this endpoint serves, autodetected from the route. Both the root
   // mount and /[teamSlug] resolve to a single team, so root-source calls
   // (status + credential tools) are attributed to it just like group/connection
@@ -202,7 +217,7 @@ export function buildMcpHandler(
 
         if (CREDENTIAL_NAMES.has(name)) {
           try {
-            const result = await runCredentialTool(principal, name, args, headers);
+            const result = await runCredentialTool(principal, name, args, headers, vaultFilter);
             await logMcpCall(principal, {
               source: "root",
               teamId,

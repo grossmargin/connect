@@ -143,7 +143,7 @@ export function ConnectionsTable({ connections }: { connections: ConnectionRow[]
     <Page breadcrumb={[{ title: "MCP Connections" }]}>
       <PageIntro
         title="MCP Connections"
-        description="One connection per provider account. Publish and group them under Published MCPs."
+        description="One connection per provider account. Publish and group them under Bundled MCPs."
         action={
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>
             New connection

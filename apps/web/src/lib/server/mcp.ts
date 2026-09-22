@@ -43,9 +43,17 @@ async function resolveOAuthUser(token: string): Promise<Principal | null> {
 
 // ---------- Tool data ----------
 
-export async function getVaults(p: Principal) {
+// Restricts credential tools to a set of vaults (the bundle's selection). When
+// omitted, every vault the principal can reach is in scope.
+export type VaultFilter = { allowedVaultIds: string[] };
+
+function vaultWhere(filter?: VaultFilter) {
+  return filter ? { id: { in: filter.allowedVaultIds } } : {};
+}
+
+export async function getVaults(p: Principal, filter?: VaultFilter) {
   const vaults = await prisma.vault.findMany({
-    where: { teamId: { in: p.teamIds } },
+    where: { teamId: { in: p.teamIds }, ...vaultWhere(filter) },
     include: { team: { select: { name: true } } },
     orderBy: { name: "asc" },
   });
@@ -58,9 +66,18 @@ export async function getVaults(p: Principal) {
   }));
 }
 
-export async function getCredentials(p: Principal, vaultId?: string) {
+export async function getCredentials(p: Principal, vaultId?: string, filter?: VaultFilter) {
+  // Both narrow by vault: `vaultId` picks one, `filter` limits to the bundle's
+  // set. When both are present the credential must satisfy each.
+  const vaultConds = [
+    ...(vaultId ? [{ vaultId }] : []),
+    ...(filter ? [{ vaultId: { in: filter.allowedVaultIds } }] : []),
+  ];
   const creds = await prisma.credential.findMany({
-    where: { vault: { teamId: { in: p.teamIds } }, ...(vaultId ? { vaultId } : {}) },
+    where: {
+      vault: { teamId: { in: p.teamIds } },
+      ...(vaultConds.length ? { AND: vaultConds } : {}),
+    },
     include: { vault: { select: { name: true, teamId: true } } },
     orderBy: { name: "asc" },
   });
@@ -79,12 +96,14 @@ export async function viewCredential(
   p: Principal,
   credentialId: string,
   ctx: { ip?: string | null; userAgent?: string | null },
+  filter?: VaultFilter,
 ) {
   const cred = await prisma.credential.findUnique({
     where: { id: credentialId },
     include: { vault: { select: { teamId: true } } },
   });
   if (!cred || !p.teamIds.includes(cred.vault.teamId)) return null;
+  if (filter && !filter.allowedVaultIds.includes(cred.vaultId)) return null;
 
   // Reveal is the audited event, whether the value is stored or fetched live.
   await audit({

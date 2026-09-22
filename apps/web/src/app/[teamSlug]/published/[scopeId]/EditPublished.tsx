@@ -1,11 +1,19 @@
 "use client";
 
-import { App, Button, Card, Form, Input, List, Modal, Popconfirm, Select, Tag, Typography } from "antd";
-import { ApiOutlined, AppstoreOutlined, DeleteOutlined, EditOutlined, PlusOutlined } from "@ant-design/icons";
+import { App, Button, Card, Form, Input, List, Modal, Popconfirm, Radio, Select, Tag, Typography } from "antd";
+import {
+  ApiOutlined,
+  AppstoreOutlined,
+  DeleteOutlined,
+  EditOutlined,
+  LockOutlined,
+  PlusOutlined,
+} from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import {
   updateScope,
+  updateScopeVaults,
   deleteScope,
   addScopeConnections,
   removeScopeConnection,
@@ -19,19 +27,27 @@ import { DetailHeader } from "@/ui/components/DetailHeader";
 import { useCurrentTeam } from "@/ui/components/TeamContext";
 
 export type ConnOption = { id: string; name: string; slug: string };
+export type VaultOption = { id: string; name: string };
 export type GroupData = { id: string; name: string; slug: string; tenantIds: string[] };
 type Scope = { id: string; name: string; slug: string; isDefault: boolean };
+type VaultMode = "ALL" | "LIST";
 
 export function EditPublished({
   scope,
   memberConnectionIds,
   groups,
   allConnections,
+  allVaults,
+  vaultMode,
+  selectedVaultIds,
 }: {
   scope: Scope;
   memberConnectionIds: string[];
   groups: GroupData[];
   allConnections: ConnOption[];
+  allVaults: VaultOption[];
+  vaultMode: VaultMode;
+  selectedVaultIds: string[];
 }) {
   const router = useRouter();
   const { teamId, teamSlug } = useCurrentTeam();
@@ -98,17 +114,17 @@ export function EditPublished({
   return (
     <Page
       breadcrumb={[
-        { title: "Published MCPs", href: `/${teamSlug}/published` },
+        { title: "Bundled MCPs", href: `/${teamSlug}/published` },
         { title: scope.name },
       ]}
     >
       <DetailHeader
         icon={<AppstoreOutlined />}
         title={scope.name}
-        subtitle={`Published MCP · ${endpoint}`}
+        subtitle={`Bundled MCP · ${endpoint}`}
         tag={scope.isDefault ? <Tag color="geekblue">Default</Tag> : undefined}
         backHref={`/${teamSlug}/published`}
-        backLabel="All published MCPs"
+        backLabel="All bundled MCPs"
       />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
@@ -140,6 +156,13 @@ export function EditPublished({
               </Form>
             </Card>
           )}
+
+          <VaultsCard
+            scopeId={scope.id}
+            allVaults={allVaults}
+            initialMode={vaultMode}
+            initialSelected={selectedVaultIds}
+          />
 
           <Card
             title="Individual MCPs"
@@ -271,11 +294,11 @@ export function EditPublished({
             <Card className="!border-red-200">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <div className="font-medium text-red-600">Delete published MCP</div>
+                  <div className="font-medium text-red-600">Delete bundle</div>
                   <div className="text-xs text-gray-500">Stops serving this endpoint.</div>
                 </div>
                 <Popconfirm
-                  title="Delete this published MCP?"
+                  title="Delete this bundle?"
                   okText="Delete"
                   okButtonProps={{ danger: true }}
                   onConfirm={removeScope}
@@ -439,6 +462,98 @@ export function EditPublished({
           </Form.Item>
         </Form>
       </Modal>
+    );
+  }
+
+  function VaultsCard({
+    scopeId,
+    allVaults,
+    initialMode,
+    initialSelected,
+  }: {
+    scopeId: string;
+    allVaults: VaultOption[];
+    initialMode: VaultMode;
+    initialSelected: string[];
+  }) {
+    const [mode, setMode] = useState<VaultMode>(initialMode);
+    const [ids, setIds] = useState<string[]>(initialSelected);
+    const [pending, start] = useTransition();
+
+    const dirty =
+      mode !== initialMode ||
+      ids.length !== initialSelected.length ||
+      ids.some((id) => !initialSelected.includes(id));
+
+    const save = () =>
+      start(async () => {
+        const r = await updateScopeVaults(teamId, scopeId, mode, ids);
+        if ("error" in r) {
+          message.error(r.error);
+          return;
+        }
+        message.success("Saved");
+        router.refresh();
+      });
+
+    const options = allVaults.map((v) => ({ value: v.id, label: v.name }));
+
+    return (
+      <Card title="Vaults">
+        <Typography.Paragraph type="secondary" className="!mt-0 !text-sm">
+          Which vaults the credential tools (<Typography.Text code>get_vaults</Typography.Text>,{" "}
+          <Typography.Text code>get_credentials</Typography.Text>,{" "}
+          <Typography.Text code>view_credential</Typography.Text>) expose on this bundle.
+        </Typography.Paragraph>
+
+        {allVaults.length === 0 ? (
+          <Typography.Text type="secondary" className="!text-sm">
+            This team has no vaults yet.
+          </Typography.Text>
+        ) : (
+          <>
+            <Radio.Group
+              value={mode}
+              onChange={(e) => setMode(e.target.value as VaultMode)}
+              className="!mb-3 flex flex-col gap-1"
+            >
+              <Radio value="ALL">All vaults{ids.length > 0 && mode === "ALL" ? " (except the ones below)" : ""}</Radio>
+              <Radio value="LIST">Only the vaults I pick</Radio>
+            </Radio.Group>
+
+            <Select
+              mode="multiple"
+              value={ids}
+              onChange={setIds}
+              className="w-full"
+              placeholder={mode === "ALL" ? "Excluded vaults (optional)" : "Pick vaults to expose"}
+              options={options}
+              optionFilterProp="label"
+              suffixIcon={<LockOutlined />}
+            />
+            <Typography.Paragraph type="secondary" className="!mb-0 !mt-2 !text-xs">
+              {mode === "ALL"
+                ? "Every team vault is exposed. Any vault listed above is hidden from this bundle."
+                : "Only the vaults listed above are exposed."}
+            </Typography.Paragraph>
+
+            <div className="mt-3 flex gap-2">
+              <Button type="primary" loading={pending} disabled={!dirty} onClick={save}>
+                Save changes
+              </Button>
+              <Button
+                disabled={!dirty}
+                onClick={() => {
+                  setMode(initialMode);
+                  setIds(initialSelected);
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </>
+        )}
+      </Card>
     );
   }
 }

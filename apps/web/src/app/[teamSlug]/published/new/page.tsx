@@ -24,7 +24,7 @@ export default function NewPublishedMcpPage() {
           message.error(r.error);
           return;
         }
-        message.success("Published MCP created");
+        message.success("Bundle created");
         router.replace(`/${teamSlug}/published/${r.id}`);
       }),
     );
@@ -32,16 +32,16 @@ export default function NewPublishedMcpPage() {
   return (
     <Page
       breadcrumb={[
-        { title: "Published MCPs", href: `/${teamSlug}/published` },
+        { title: "Bundled MCPs", href: `/${teamSlug}/published` },
         { title: "New" },
       ]}
     >
       <DetailHeader
         icon={<AppstoreOutlined />}
-        title="New Published MCP"
-        subtitle="An endpoint that exposes a set of member MCPs"
+        title="New bundle"
+        subtitle="An endpoint that exposes a set of member MCPs and vaults"
         backHref={`/${teamSlug}/published`}
-        backLabel="All published MCPs"
+        backLabel="All bundled MCPs"
       />
 
       <div className="max-w-[560px]">

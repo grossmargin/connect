@@ -69,7 +69,7 @@ export function AppShell({
     {
       key: `${base}/published`,
       icon: <ShareAltOutlined />,
-      label: <Link href={`${base}/published`}>{navLabel("Published MCPs", counts.scopes)}</Link>,
+      label: <Link href={`${base}/published`}>{navLabel("Bundled MCPs", counts.scopes)}</Link>,
     },
     {
       key: `${base}/settings`,

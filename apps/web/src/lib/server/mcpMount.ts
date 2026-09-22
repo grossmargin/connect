@@ -18,11 +18,21 @@ export async function serveTeamMcp(req: Request, teamId: string, scopeSlug?: str
 
   const connections = [...scope.connections].sort((a, b) => a.name.localeCompare(b.name));
   const groups = [...scope.groups].sort((a, b) => a.name.localeCompare(b.name));
-  const vaults = await prisma.vault.findMany({
+
+  // Vaults this bundle exposes. LIST: only the selected ones. ALL: every team
+  // vault minus the selected ones (exceptions).
+  const selectedVaultIds = new Set(scope.vaults.map((v) => v.id));
+  const teamVaults = await prisma.vault.findMany({
     where: { teamId },
     orderBy: { name: "asc" },
-    select: { name: true, description: true },
+    select: { id: true, name: true, description: true },
   });
+  const allowedVaults =
+    scope.vaultMode === "LIST"
+      ? teamVaults.filter((v) => selectedVaultIds.has(v.id))
+      : teamVaults.filter((v) => !selectedVaultIds.has(v.id));
+  const vaultFilter = { allowedVaultIds: allowedVaults.map((v) => v.id) };
+  const vaults = allowedVaults.map((v) => ({ name: v.name, description: v.description }));
 
   const instructions = renderRootInstructions(
     groups.map((g) => ({
@@ -36,7 +46,11 @@ export async function serveTeamMcp(req: Request, teamId: string, scopeSlug?: str
   );
 
   const endpoint = new URL(req.url).pathname;
-  return buildMcpHandler(groups, connections, [], instructions, { endpoint, teamScope: teamId })(req);
+  return buildMcpHandler(groups, connections, [], instructions, {
+    endpoint,
+    teamScope: teamId,
+    vaultFilter,
+  })(req);
 }
 
 // A handler that requires a bearer but serves nothing — used when we cannot pick

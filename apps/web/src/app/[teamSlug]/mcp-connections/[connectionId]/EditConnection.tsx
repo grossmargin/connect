@@ -294,7 +294,7 @@ export function EditConnection({ connection }: { connection: Connection }) {
           <Card title="Published in">
             {connection.usages.length === 0 ? (
               <Typography.Text type="secondary" className="!text-sm">
-                Not part of any Published MCP yet.
+                Not part of any bundle yet.
               </Typography.Text>
             ) : (
               <>

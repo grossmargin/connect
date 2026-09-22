@@ -5,7 +5,7 @@ import { encrypt, decrypt } from "@/lib/server/crypto";
 // Auth types this app can use to reach an MCP server. The McpConnection.authType
 // column is a plain string; these are its allowed values. Add a new member here
 // and a matching credential schema below when supporting a new type.
-export const MCP_AUTH_TYPES = ["DCR", "HEADERS"] as const;
+export const MCP_AUTH_TYPES = ["DCR", "HEADERS", "STDIO"] as const;
 export type McpAuthType = (typeof MCP_AUTH_TYPES)[number];
 
 const oauthTokens = {
@@ -43,9 +43,26 @@ export const headersCredentials = z.object({
 });
 export type HeadersCredentials = z.infer<typeof headersCredentials>;
 
+// STDIO: a "local" MCP. Instead of a remote URL, we run a vetted Node stdio MCP
+// server (identified by npm `package`, a build-time dependency on our allowlist)
+// inside a short-lived worker thread and bridge its stdio to an MCP client. The
+// server configures itself from `env` — typically an API key — which is
+// per-connection and encrypted at rest like any other credential. See
+// lib/isomorphic/localMcpPackages.ts and lib/server/upstream/.
+export const stdioCredentials = z.object({
+  authType: z.literal("STDIO"),
+  package: z.string(),
+  env: z.record(z.string(), z.string()),
+});
+export type StdioCredentials = z.infer<typeof stdioCredentials>;
+
 // The decrypted shape of McpConnection.encryptedCredentials. Discriminated on
 // authType; extend the union as new auth types are added.
-export const mcpCredentials = z.discriminatedUnion("authType", [dcrCredentials, headersCredentials]);
+export const mcpCredentials = z.discriminatedUnion("authType", [
+  dcrCredentials,
+  headersCredentials,
+  stdioCredentials,
+]);
 export type McpCredentials = z.infer<typeof mcpCredentials>;
 
 // Parses the plain-textarea header input into a header map. Each non-empty line
@@ -66,6 +83,32 @@ export function parseHeaderText(text: string): Record<string, string> {
     headers[name] = value;
   }
   return headers;
+}
+
+// Parses the plain-textarea env input into an environment map. Each non-empty
+// line is `KEY=value` (the first `=` splits it); blank lines and `#` comments
+// are ignored, and a leading `export ` is tolerated. A surrounding pair of
+// single or double quotes on the value is stripped. Throws on a line without an
+// `=` or an empty key so the user gets a clear error rather than a silently
+// dropped variable.
+export function parseEnvText(text: string): Record<string, string> {
+  const env: Record<string, string> = {};
+  const lines = text.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i].trim();
+    if (!line || line.startsWith("#")) continue;
+    if (line.startsWith("export ")) line = line.slice("export ".length).trim();
+    const eq = line.indexOf("=");
+    if (eq === -1) throw new Error(`Line ${i + 1}: expected "KEY=value".`);
+    const key = line.slice(0, eq).trim();
+    let value = line.slice(eq + 1).trim();
+    if (!key) throw new Error(`Line ${i + 1}: variable name is empty.`);
+    if (value.length >= 2 && (value[0] === '"' || value[0] === "'") && value.at(-1) === value[0]) {
+      value = value.slice(1, -1);
+    }
+    env[key] = value;
+  }
+  return env;
 }
 
 // Returns a fresh-ArrayBuffer Uint8Array for Prisma's Bytes column.

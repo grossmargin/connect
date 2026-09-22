@@ -177,6 +177,9 @@ export async function resolveAuthHeaders(
   creds: McpCredentials,
 ): Promise<{ headers: AuthHeaders; refreshedCreds?: DcrCredentials }> {
   if (creds.authType === "HEADERS") return { headers: { ...creds.headers } };
+  // STDIO connections are not reached over HTTP and never pass through here
+  // (openUpstream routes them to a worker thread). Guard for exhaustiveness.
+  if (creds.authType !== "DCR") throw new Error(`"${conn.name}" has no HTTP auth (local MCP).`);
   const { accessToken, refreshedCreds } = await ensureAccessToken(conn, creds);
   return { headers: { Authorization: `Bearer ${accessToken}` }, refreshedCreds };
 }

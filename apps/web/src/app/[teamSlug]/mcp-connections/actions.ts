@@ -10,16 +10,20 @@ import { userInTeam } from "@/lib/server/access";
 import { isUuid } from "@/lib/isomorphic/ids";
 import { audit } from "@/lib/server/audit";
 import { kvSet } from "@/lib/server/kv";
-import { packCredentials, readCredentials, parseHeaderText } from "@/lib/server/mcpCredentials";
+import { packCredentials, readCredentials, parseHeaderText, parseEnvText } from "@/lib/server/mcpCredentials";
 import {
   assertDcrSupported,
   registerConnection,
   deregisterConnection,
   buildAuthorization,
-  resolveAuthHeaders,
-  probeServer,
   type ToolInfo,
 } from "@/lib/server/mcpClient";
+import { probeConn } from "@/lib/server/upstream";
+import {
+  isAllowedLocalMcpPackage,
+  findLocalMcpPackage,
+  stdioSentinelUrl,
+} from "@/lib/isomorphic/localMcpPackages";
 import { slugify } from "@/lib/isomorphic/slug";
 import { OAUTH_STATE_NS, OAUTH_STATE_TTL_SECONDS } from "./constants";
 
@@ -118,6 +122,64 @@ export async function createHeadersConnection(
         authType: "HEADERS",
         status: "REGISTERED",
         encryptedCredentials: packCredentials({ authType: "HEADERS", headers }),
+        createdById: user.id,
+      },
+    });
+    revalidatePath(`/${teamId}/mcp-connections`);
+    return { id: conn.id };
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      return { error: "An id derived from this name already exists. Pick another name." };
+    }
+    return { error: errorMessage(e) };
+  }
+}
+
+// Creates a "local" MCP connection: a vetted Node stdio server (npm `pkg`,
+// which must be on the allowlist and a build-time dependency) that we run in a
+// short-lived worker thread. `envText` is the plain textarea input: one
+// `KEY=value` per line. The parsed map is encrypted at rest. The package name
+// itself is not secret and is stored in the (non-null) url column as a
+// `stdio:<pkg>` sentinel for listing/display. Nothing is verified here — the
+// user runs "Test" afterwards.
+export async function createStdioConnection(
+  teamId: string,
+  name: string,
+  pkg: string,
+  envText: string,
+): Promise<{ id: string } | { error: string }> {
+  const user = await requireMember(teamId);
+  const trimmedName = name.trim();
+  const trimmedPkg = pkg.trim();
+  if (!trimmedName || !trimmedPkg) return { error: "Name and package are required." };
+  if (!isAllowedLocalMcpPackage(trimmedPkg)) {
+    return { error: `"${trimmedPkg}" is not a supported local MCP package.` };
+  }
+
+  let env: Record<string, string>;
+  try {
+    env = parseEnvText(envText);
+  } catch (e) {
+    return { error: `Environment: ${errorMessage(e)}` };
+  }
+  // Warn if a required env var the package documents is missing — but don't
+  // block; some servers accept a shared key from elsewhere.
+  const spec = findLocalMcpPackage(trimmedPkg);
+  const missing = (spec?.env ?? []).filter((v) => v.required && !env[v.key]).map((v) => v.key);
+  if (missing.length > 0) {
+    return { error: `Missing required variable(s): ${missing.join(", ")}.` };
+  }
+
+  try {
+    const conn = await prisma.mcpConnection.create({
+      data: {
+        teamId,
+        name: trimmedName,
+        slug: slugify(trimmedName),
+        url: stdioSentinelUrl(trimmedPkg),
+        authType: "STDIO",
+        status: "REGISTERED",
+        encryptedCredentials: packCredentials({ authType: "STDIO", package: trimmedPkg, env }),
         createdById: user.id,
       },
     });
@@ -235,15 +297,9 @@ export async function testConnection(
     const creds = readCredentials(conn.encryptedCredentials);
     if (!creds) return { error: "Connection is not registered." };
 
-    const { headers, refreshedCreds } = await resolveAuthHeaders(conn, creds);
-    details.tokenRefreshed = !!refreshedCreds;
-    if (refreshedCreds) {
-      await prisma.mcpConnection.update({
-        where: { id: connectionId },
-        data: { encryptedCredentials: packCredentials(refreshedCreds) },
-      });
-    }
-    const { tools, instructions } = await probeServer(conn, headers);
+    // probeConn opens the right upstream (remote over HTTP, or a local stdio
+    // server in a worker thread) and, for OAuth, refreshes + persists the token.
+    const { tools, instructions } = await probeConn(conn);
     const now = new Date();
     details.durationMs = Date.now() - startedAt;
     details.toolCount = tools.length;
@@ -339,6 +395,14 @@ export async function getConnectionCredentials(
     const headers: Record<string, string | null> = {};
     for (const [k, v] of Object.entries(creds.headers)) headers[k] = show(v);
     return { summary: { ...common, headers } };
+  }
+
+  if (creds.authType === "STDIO") {
+    // A local (worker-thread) MCP: the package name is not secret; each env
+    // value is, so it's masked unless revealed (and the reveal is audited).
+    const env: Record<string, string | null> = {};
+    for (const [k, v] of Object.entries(creds.env)) env[k] = show(v);
+    return { summary: { ...common, transport: "worker-thread (stdio)", package: creds.package, env } };
   }
 
   return {

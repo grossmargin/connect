@@ -1,11 +1,11 @@
 "use client";
 
-import { App, AutoComplete, Avatar, Button, Form, Input, Modal, Popconfirm, Segmented, Table, Tooltip, Typography } from "antd";
+import { App, AutoComplete, Avatar, Button, Form, Input, Modal, Popconfirm, Segmented, Select, Table, Tooltip, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { CodeOutlined, DeleteOutlined, EditOutlined, PlusOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { createConnection, createHeadersConnection, deleteConnection, startAuthorize } from "./actions";
+import { createConnection, createHeadersConnection, createStdioConnection, deleteConnection, startAuthorize } from "./actions";
 import { ConnectionTechModal } from "./ConnectionTechModal";
 import { STATUS_TAG, type ConnectionStatus } from "./status";
 import { CopyId } from "@/ui/components/CopyId";
@@ -14,6 +14,7 @@ import { StatusPill } from "@/ui/components/StatusPill";
 import { useCurrentTeam } from "@/ui/components/TeamContext";
 import { timeAgo } from "@/lib/isomorphic/timeAgo";
 import { KNOWN_MCP_SERVERS } from "@/lib/isomorphic/knownMcpServers";
+import { LOCAL_MCP_PACKAGES, packageFromSentinelUrl } from "@/lib/isomorphic/localMcpPackages";
 
 export type ConnectionRow = {
   id: string;
@@ -30,6 +31,9 @@ export type ConnectionRow = {
 const PROVIDERS = KNOWN_MCP_SERVERS;
 
 function host(url: string): string {
+  // Local (stdio) connections store a `stdio:<pkg>` sentinel, not a real URL.
+  const pkg = packageFromSentinelUrl(url);
+  if (pkg) return `local · ${pkg}`;
   try {
     return new URL(url).host;
   } catch {
@@ -177,7 +181,7 @@ export function ConnectionsTable({ connections }: { connections: ConnectionRow[]
   );
 }
 
-type AuthMode = "DCR" | "HEADERS";
+type AuthMode = "DCR" | "HEADERS" | "STDIO";
 
 function NewConnectionModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter();
@@ -186,10 +190,27 @@ function NewConnectionModal({ open, onClose }: { open: boolean; onClose: () => v
   const [form] = Form.useForm();
   const [pending, start] = useTransition();
   const [mode, setMode] = useState<AuthMode>("DCR");
+  const selectedPackage = Form.useWatch("package", form);
+  const packageSpec = LOCAL_MCP_PACKAGES.find((p) => p.package === selectedPackage);
+  const envPlaceholder = (packageSpec?.env ?? []).map((e) => `${e.key}=`).join("\n") || "KEY=value";
 
   const submit = () =>
     form.validateFields().then((v) =>
       start(async () => {
+        if (mode === "STDIO") {
+          const r = await createStdioConnection(teamId, v.name, v.package, v.env ?? "");
+          if ("error" in r) {
+            message.error(r.error);
+            return;
+          }
+          message.success("Local MCP added");
+          onClose();
+          form.resetFields();
+          setMode("DCR");
+          router.push(`/${teamSlug}/mcp-connections/${r.id}`);
+          return;
+        }
+
         if (mode === "HEADERS") {
           const r = await createHeadersConnection(teamId, v.name, v.url, v.headers ?? "");
           if ("error" in r) {
@@ -230,7 +251,7 @@ function NewConnectionModal({ open, onClose }: { open: boolean; onClose: () => v
       title="New connection"
       open={open}
       onCancel={onClose}
-      okText={mode === "HEADERS" ? "Add" : "Continue to provider"}
+      okText={mode === "DCR" ? "Continue to provider" : "Add"}
       confirmLoading={pending}
       onOk={submit}
       destroyOnHidden
@@ -242,48 +263,83 @@ function NewConnectionModal({ open, onClose }: { open: boolean; onClose: () => v
         options={[
           { label: "OAuth", value: "DCR" },
           { label: "Static headers", value: "HEADERS" },
+          { label: "Local (npm)", value: "STDIO" },
         ]}
         className="!mb-3"
       />
       <Typography.Paragraph type="secondary" className="!text-sm">
         {mode === "HEADERS"
           ? "Send fixed HTTP headers (e.g. a bearer token) with every request. Use this for servers that authenticate with a token/PAT instead of OAuth. Headers are encrypted; nothing is verified until you run Test."
-          : "We check the server supports OAuth, then send you to the provider to authorize. A client is registered fresh at that step."}
+          : mode === "STDIO"
+            ? "Run a vetted Node MCP package on our servers (in a short-lived worker thread) instead of connecting to a remote URL. Configure it with environment variables (e.g. an API key). They're encrypted; nothing is verified until you run Test."
+            : "We check the server supports OAuth, then send you to the provider to authorize. A client is registered fresh at that step."}
       </Typography.Paragraph>
       <Form form={form} layout="vertical" requiredMark={false} preserve={false}>
         <Form.Item name="name" label="Name" rules={[{ required: true }]}>
-          <Input placeholder="e.g. Ramp - Acme Inc" autoFocus />
+          <Input placeholder={mode === "STDIO" ? "e.g. Helius - Acme" : "e.g. Ramp - Acme Inc"} autoFocus />
         </Form.Item>
-        <Form.Item
-          name="url"
-          label="Server URL"
-          extra={mode === "HEADERS" ? "The MCP server URL." : "Pick a known provider or paste any MCP server URL."}
-          rules={[
-            { required: true, message: "Enter the MCP server URL" },
-            { type: "url", message: "Enter a valid URL" },
-          ]}
-        >
-          <AutoComplete
-            options={PROVIDERS.map((p) => ({ value: p.url, label: `${p.name} — ${host(p.url)}` }))}
-            filterOption={(input, option) =>
-              `${option?.value} ${option?.label}`.toLowerCase().includes(input.toLowerCase())
-            }
-            onSelect={(url) => {
-              const p = PROVIDERS.find((x) => x.url === url);
-              if (p && !form.getFieldValue("name")) form.setFieldValue("name", p.name);
-            }}
-            placeholder="https://mcp.example.com/mcp"
-          />
-        </Form.Item>
-        {mode === "HEADERS" && (
-          <Form.Item
-            name="headers"
-            label="Headers"
-            extra="One per line, `Name: value`. Blank lines and `#` comments are ignored."
-            rules={[{ required: true, message: "Enter at least one header" }]}
-          >
-            <Input.TextArea rows={4} placeholder={"Authorization: Bearer <token>"} className="font-mono !text-sm" />
-          </Form.Item>
+        {mode === "STDIO" ? (
+          <>
+            <Form.Item
+              name="package"
+              label="Package"
+              extra="A vetted Node MCP package. Only allowlisted packages can run."
+              rules={[{ required: true, message: "Pick a package" }]}
+            >
+              <Select
+                placeholder="Select a local MCP package"
+                onChange={(pkg) => {
+                  const p = LOCAL_MCP_PACKAGES.find((x) => x.package === pkg);
+                  if (p && !form.getFieldValue("name")) form.setFieldValue("name", p.name);
+                }}
+                options={LOCAL_MCP_PACKAGES.map((p) => ({
+                  value: p.package,
+                  label: `${p.name} — ${p.package}`,
+                }))}
+              />
+            </Form.Item>
+            <Form.Item
+              name="env"
+              label="Environment variables"
+              extra="One per line, `KEY=value`. Blank lines and `#` comments are ignored."
+            >
+              <Input.TextArea rows={4} placeholder={envPlaceholder} className="font-mono !text-sm" />
+            </Form.Item>
+          </>
+        ) : (
+          <>
+            <Form.Item
+              name="url"
+              label="Server URL"
+              extra={mode === "HEADERS" ? "The MCP server URL." : "Pick a known provider or paste any MCP server URL."}
+              rules={[
+                { required: true, message: "Enter the MCP server URL" },
+                { type: "url", message: "Enter a valid URL" },
+              ]}
+            >
+              <AutoComplete
+                options={PROVIDERS.map((p) => ({ value: p.url, label: `${p.name} — ${host(p.url)}` }))}
+                filterOption={(input, option) =>
+                  `${option?.value} ${option?.label}`.toLowerCase().includes(input.toLowerCase())
+                }
+                onSelect={(url) => {
+                  const p = PROVIDERS.find((x) => x.url === url);
+                  if (p && !form.getFieldValue("name")) form.setFieldValue("name", p.name);
+                }}
+                placeholder="https://mcp.example.com/mcp"
+              />
+            </Form.Item>
+            {mode === "HEADERS" && (
+              <Form.Item
+                name="headers"
+                label="Headers"
+                extra="One per line, `Name: value`. Blank lines and `#` comments are ignored."
+                rules={[{ required: true, message: "Enter at least one header" }]}
+              >
+                <Input.TextArea rows={4} placeholder={"Authorization: Bearer <token>"} className="font-mono !text-sm" />
+              </Form.Item>
+            )}
+          </>
         )}
       </Form>
     </Modal>

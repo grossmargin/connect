@@ -1,8 +1,8 @@
 import "server-only";
 import type { Tool, CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { McpConnection, McpGroup } from "@prisma/client";
-import { fetchToolDefs, callUpstreamTool } from "@/lib/server/mcpClient";
-import { text, errorResult, memberHeaders } from "@/lib/server/mcpToolShared";
+import { listConnTools, callConnTool } from "@/lib/server/upstream";
+import { text, errorResult } from "@/lib/server/mcpToolShared";
 
 // A Published MCP exposes two kinds of member:
 //   - individual connection: its tools are published under "<conn.slug>__",
@@ -26,7 +26,7 @@ export function connOwns(c: McpConnection, name: string): boolean {
 export async function connToolDefs(c: McpConnection): Promise<Tool[]> {
   let upstream: Tool[] = [];
   try {
-    upstream = (await fetchToolDefs(c.url, await memberHeaders(c))).tools;
+    upstream = (await listConnTools(c)).tools;
   } catch (e) {
     const reason = e instanceof Error ? e.message : String(e);
     console.error(`connToolDefs: upstream tools unavailable for "${c.name}": ${reason}`);
@@ -50,11 +50,11 @@ export async function handleConnCall(
   args: Record<string, unknown>,
 ): Promise<ConnCallOutcome> {
   if (name === connInstructionsName(c)) {
-    const { instructions } = await fetchToolDefs(c.url, await memberHeaders(c));
+    const { instructions } = await listConnTools(c);
     return { result: text(instructions ?? "(no instructions)"), connectionId: c.id };
   }
   const original = name.slice(connPrefix(c).length);
-  const result = await callUpstreamTool(c.url, await memberHeaders(c), original, args);
+  const result = await callConnTool(c, original, args);
   return { result, connectionId: c.id };
 }
 
@@ -76,7 +76,7 @@ export async function groupToolDefs(g: GroupWithTenants): Promise<Tool[]> {
   let upstream: Tool[] = [];
   if (ref) {
     try {
-      upstream = (await fetchToolDefs(ref.url, await memberHeaders(ref))).tools;
+      upstream = (await listConnTools(ref)).tools;
     } catch (e) {
       const reason = e instanceof Error ? e.message : String(e);
       console.error(`groupToolDefs: upstream tools unavailable for "${ref.name}": ${reason}`);
@@ -134,7 +134,7 @@ export async function handleGroupCall(
     const t = String(args.tenant ?? "");
     const conn = bySlug.get(t);
     if (!conn) return { result: errorResult(`Unknown tenant "${t}". Call ${tenantsName(g)} to list them.`) };
-    const { instructions } = await fetchToolDefs(conn.url, await memberHeaders(conn));
+    const { instructions } = await listConnTools(conn);
     return { result: text(instructions ?? "(no instructions)"), connectionId: conn.id, tenant: t };
   }
 
@@ -152,6 +152,6 @@ export async function handleGroupCall(
   if (!conn) {
     return { result: errorResult(`Unknown tenant "${tenant}". Call ${tenantsName(g)} to list them.`), tenant };
   }
-  const result = await callUpstreamTool(conn.url, await memberHeaders(conn), original, upstreamArgs);
+  const result = await callConnTool(conn, original, upstreamArgs);
   return { result, connectionId: conn.id, tenant };
 }

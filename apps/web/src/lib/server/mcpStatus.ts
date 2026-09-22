@@ -1,7 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/server/db";
-import { probeServer } from "@/lib/server/mcpClient";
-import { memberHeaders } from "@/lib/server/mcpToolShared";
+import { probeConn } from "@/lib/server/upstream";
 import type { Principal } from "@/lib/server/mcp";
 
 export type ConnectionHealth = {
@@ -27,8 +26,7 @@ export async function connectionStatusReport(principal: Principal): Promise<Stat
   await Promise.all(
     conns.map(async (conn) => {
       try {
-        const headers = await memberHeaders(conn);
-        await probeServer(conn, headers);
+        await probeConn(conn);
         connections[conn.slug] = { status: "ok", name: conn.name };
       } catch (e) {
         connections[conn.slug] = {

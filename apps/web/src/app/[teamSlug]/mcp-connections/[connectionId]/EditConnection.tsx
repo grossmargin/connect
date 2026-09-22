@@ -23,6 +23,7 @@ import { Page } from "@/ui/components/Page";
 import { StatusPill } from "@/ui/components/StatusPill";
 import { useCurrentTeam } from "@/ui/components/TeamContext";
 import { timeAgo } from "@/lib/isomorphic/timeAgo";
+import { packageFromSentinelUrl } from "@/lib/isomorphic/localMcpPackages";
 
 type ToolInfo = { name: string; description?: string };
 type Usage = { scopeId: string; label: string };
@@ -41,6 +42,8 @@ type Connection = {
 };
 
 function host(url: string): string {
+  const pkg = packageFromSentinelUrl(url);
+  if (pkg) return `local · ${pkg}`;
   try {
     return new URL(url).host;
   } catch {
@@ -64,10 +67,13 @@ export function EditConnection({ connection }: { connection: Connection }) {
 
   const authorized = searchParams.get("authorized") === "1";
   const callbackError = searchParams.get("error");
-  // Token-based connections carry their credentials from the start — there's no
-  // OAuth authorize step, and Test can run immediately.
-  const isHeaders = connection.authType === "HEADERS";
-  const notAuthorized = !isHeaders && (connection.status === "PENDING" || connection.status === "REGISTERED");
+  // Only OAuth (DCR) connections have an authorize step. Header- and local
+  // (stdio) connections carry their configuration from the start, so Test can
+  // run immediately.
+  const isOAuth = connection.authType === "DCR";
+  const isLocal = connection.authType === "STDIO";
+  const localPackage = packageFromSentinelUrl(connection.url);
+  const notAuthorized = isOAuth && (connection.status === "PENDING" || connection.status === "REGISTERED");
 
   const save = () =>
     form.validateFields().then((v) =>
@@ -162,8 +168,8 @@ export function EditConnection({ connection }: { connection: Connection }) {
               >
                 <Input />
               </Form.Item>
-              <Form.Item label="Server URL">
-                <Input value={connection.url} readOnly disabled />
+              <Form.Item label={isLocal ? "Local package" : "Server URL"}>
+                <Input value={isLocal ? (localPackage ?? connection.url) : connection.url} readOnly disabled />
               </Form.Item>
               <div className="flex gap-2">
                 <Button type="primary" loading={saving} onClick={save}>
@@ -218,9 +224,15 @@ export function EditConnection({ connection }: { connection: Connection }) {
                 Authorize this connection to run <Typography.Text code>tools/list</Typography.Text>.
               </Typography.Paragraph>
             )}
-            {isHeaders && (
+            {connection.authType === "HEADERS" && (
               <Typography.Paragraph type="secondary" className="!mb-0 !mt-3 !text-sm">
                 Authenticates with stored headers. Run <Typography.Text code>Test</Typography.Text> to verify them.
+              </Typography.Paragraph>
+            )}
+            {isLocal && (
+              <Typography.Paragraph type="secondary" className="!mb-0 !mt-3 !text-sm">
+                Runs the <Typography.Text code>{localPackage}</Typography.Text> package in a worker thread. Run{" "}
+                <Typography.Text code>Test</Typography.Text> to start it and load its tools.
               </Typography.Paragraph>
             )}
             <div className="mt-4 flex gap-2">
@@ -234,7 +246,7 @@ export function EditConnection({ connection }: { connection: Connection }) {
               >
                 Test
               </Button>
-              {!isHeaders &&
+              {isOAuth &&
                 (connection.status === "PENDING" ? (
                   // No client registered yet: the only action is to register + authorize.
                   <Button

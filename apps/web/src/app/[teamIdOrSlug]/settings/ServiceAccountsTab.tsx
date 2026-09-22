@@ -14,8 +14,8 @@ import {
   revokeServiceAccountKey,
   type ServiceAccountKeyInfo,
 } from "./actions";
-import { CopyId } from "../../CopyId";
-import { useCurrentTeam } from "../../TeamContext";
+import { CopyId } from "@/ui/components/CopyId";
+import { useCurrentTeam } from "@/ui/components/TeamContext";
 import { timeAgo } from "@/lib/isomorphic/timeAgo";
 
 export type ServiceAccountRow = {

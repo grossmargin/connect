@@ -8,10 +8,10 @@ import { useState, useTransition } from "react";
 import { createConnection, createHeadersConnection, deleteConnection, startAuthorize } from "./actions";
 import { ConnectionTechModal } from "./ConnectionTechModal";
 import { STATUS_TAG, type ConnectionStatus } from "./status";
-import { CopyId } from "../../CopyId";
-import { Page, PageIntro } from "../../Page";
-import { StatusPill } from "../../StatusPill";
-import { useCurrentTeam } from "../../TeamContext";
+import { CopyId } from "@/ui/components/CopyId";
+import { Page, PageIntro } from "@/ui/components/Page";
+import { StatusPill } from "@/ui/components/StatusPill";
+import { useCurrentTeam } from "@/ui/components/TeamContext";
 import { timeAgo } from "@/lib/isomorphic/timeAgo";
 import { KNOWN_MCP_SERVERS } from "@/lib/isomorphic/knownMcpServers";
 

@@ -1,4 +1,4 @@
-import type { Tone } from "../../StatusPill";
+import type { Tone } from "@/ui/components/StatusPill";
 
 export type ConnectionStatus = "PENDING" | "REGISTERED" | "CONNECTED" | "ERROR";
 

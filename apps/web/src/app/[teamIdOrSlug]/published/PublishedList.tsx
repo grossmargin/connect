@@ -6,9 +6,9 @@ import { ApiOutlined, AppstoreOutlined, DeleteOutlined, EditOutlined, PlusOutlin
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { deleteScope } from "./actions";
-import { CopyId } from "../../CopyId";
-import { Page, PageIntro } from "../../Page";
-import { useCurrentTeam } from "../../TeamContext";
+import { CopyId } from "@/ui/components/CopyId";
+import { Page, PageIntro } from "@/ui/components/Page";
+import { useCurrentTeam } from "@/ui/components/TeamContext";
 
 export type ScopeRow = {
   id: string;

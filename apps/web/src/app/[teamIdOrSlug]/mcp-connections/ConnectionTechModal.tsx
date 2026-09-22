@@ -4,7 +4,7 @@ import { App, Button, Modal, Popconfirm, Spin, Tag, Typography } from "antd";
 import { EyeOutlined, SafetyCertificateOutlined } from "@ant-design/icons";
 import { useEffect, useState, useTransition } from "react";
 import { getConnectionCredentials } from "./actions";
-import { useCurrentTeam } from "../../TeamContext";
+import { useCurrentTeam } from "@/ui/components/TeamContext";
 
 type Summary = Record<string, unknown>;
 

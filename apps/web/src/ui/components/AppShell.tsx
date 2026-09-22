@@ -14,8 +14,8 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTransition } from "react";
-import { doSignOut } from "./actions";
-import { TeamProvider } from "./TeamContext";
+import { doSignOut } from "@/app/actions";
+import { TeamProvider } from "@/ui/components/TeamContext";
 
 const { Sider, Content } = Layout;
 

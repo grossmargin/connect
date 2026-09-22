@@ -5,8 +5,8 @@ import { ArrowRightOutlined, FolderOpenOutlined, KeyOutlined, PlusOutlined } fro
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { createVault } from "../actions";
-import { Page, PageIntro } from "../Page";
-import { useCurrentTeam } from "../TeamContext";
+import { Page, PageIntro } from "@/ui/components/Page";
+import { useCurrentTeam } from "@/ui/components/TeamContext";
 import { timeAgo } from "@/lib/isomorphic/timeAgo";
 
 type Vault = {

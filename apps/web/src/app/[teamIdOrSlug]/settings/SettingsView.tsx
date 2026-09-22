@@ -7,9 +7,9 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
 import { updateTeamSlug } from "./actions";
 import { ServiceAccountsTab, type ServiceAccountRow } from "./ServiceAccountsTab";
-import { CopyId } from "../../CopyId";
-import { Page, PageIntro } from "../../Page";
-import { useCurrentTeam } from "../../TeamContext";
+import { CopyId } from "@/ui/components/CopyId";
+import { Page, PageIntro } from "@/ui/components/Page";
+import { useCurrentTeam } from "@/ui/components/TeamContext";
 import { timeAgo } from "@/lib/isomorphic/timeAgo";
 
 export type { ServiceAccountRow };

@@ -142,6 +142,11 @@ export function buildMcpHandler(
   opts: { endpoint?: string; teamScope?: string } = {},
 ) {
   const endpoint = opts.endpoint ?? "/";
+  // The team this endpoint serves, autodetected from the route. Both the root
+  // mount and /[teamSlug] resolve to a single team, so root-source calls
+  // (status + credential tools) are attributed to it just like group/connection
+  // calls are attributed via their entity's teamId.
+  const teamId = opts.teamScope ?? null;
   const handler = createMcpHandler(
     (mcp) => {
       const server = mcp.server;
@@ -173,6 +178,7 @@ export function buildMcpHandler(
             const report = await connectionStatusReport(principal);
             await logMcpCall(principal, {
               source: "root",
+              teamId,
               toolName: name,
               ok: true,
               durationMs: Date.now() - started,
@@ -183,6 +189,7 @@ export function buildMcpHandler(
             const msg = e instanceof Error ? e.message : "call failed";
             await logMcpCall(principal, {
               source: "root",
+              teamId,
               toolName: name,
               ok: false,
               error: msg,
@@ -198,6 +205,7 @@ export function buildMcpHandler(
             const result = await runCredentialTool(principal, name, args, headers);
             await logMcpCall(principal, {
               source: "root",
+              teamId,
               toolName: name,
               args: name === "view_credential" ? { credentialId: args.credentialId } : args,
               ok: !result.isError,
@@ -210,6 +218,7 @@ export function buildMcpHandler(
             const msg = e instanceof Error ? e.message : "call failed";
             await logMcpCall(principal, {
               source: "root",
+              teamId,
               toolName: name,
               args,
               ok: false,

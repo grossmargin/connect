@@ -2,7 +2,8 @@
 
 import { App, Button, Modal, Popconfirm, Spin, Tag, Typography } from "antd";
 import { EyeOutlined, SafetyCertificateOutlined } from "@ant-design/icons";
-import { useEffect, useState, useTransition } from "react";
+import { useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { getConnectionCredentials } from "./actions";
 import { useCurrentTeam } from "@/ui/components/TeamContext";
 
@@ -23,35 +24,38 @@ export function ConnectionTechModal({
 }) {
   const { teamId } = useCurrentTeam();
   const { message } = App.useApp();
-  const [summary, setSummary] = useState<Summary | null>(null);
   const [revealed, setRevealed] = useState(false);
-  const [loading, start] = useTransition();
 
-  useEffect(() => {
-    if (!open) return;
-    setSummary(null);
-    setRevealed(false);
-    start(async () => {
+  // Masked summary loads while the modal is open (and not yet revealed). Reveal
+  // is a separate, audit-logged read shown in place of the masked one.
+  const query = useQuery({
+    queryKey: ["connection-credentials", teamId, connectionId],
+    enabled: open && !revealed,
+    queryFn: async () => {
       const r = await getConnectionCredentials(teamId, connectionId, false);
-      if ("error" in r) {
-        message.error(r.error);
-        return;
-      }
-      setSummary(r.summary);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, connectionId, teamId]);
+      if ("error" in r) throw new Error(r.error);
+      return r.summary as Summary;
+    },
+  });
 
-  const reveal = () =>
-    start(async () => {
+  const revealMutation = useMutation({
+    mutationFn: async () => {
       const r = await getConnectionCredentials(teamId, connectionId, true);
-      if ("error" in r) {
-        message.error(r.error);
-        return;
-      }
-      setSummary(r.summary);
-      setRevealed(true);
-    });
+      if ("error" in r) throw new Error(r.error);
+      return r.summary as Summary;
+    },
+    onSuccess: () => setRevealed(true),
+    onError: (e) => message.error(e instanceof Error ? e.message : "Failed"),
+  });
+
+  const summary = revealed ? revealMutation.data ?? null : query.data ?? null;
+  const loading = query.isFetching || revealMutation.isPending;
+  const reveal = () => revealMutation.mutate();
+  const close = () => {
+    setRevealed(false);
+    revealMutation.reset();
+    onClose();
+  };
 
   return (
     <Modal
@@ -62,10 +66,10 @@ export function ConnectionTechModal({
         </span>
       }
       open={open}
-      onCancel={onClose}
+      onCancel={close}
       width={640}
       footer={[
-        <Button key="close" onClick={onClose}>
+        <Button key="close" onClick={close}>
           Close
         </Button>,
         revealed ? null : (
@@ -90,7 +94,11 @@ export function ConnectionTechModal({
       </Typography.Paragraph>
       <Spin spinning={loading && !summary}>
         <pre className="max-h-[52vh] overflow-auto rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs leading-relaxed">
-          {summary ? JSON.stringify(summary, null, 2) : "…"}
+          {query.isError
+            ? `Error: ${query.error instanceof Error ? query.error.message : "failed to load"}`
+            : summary
+              ? JSON.stringify(summary, null, 2)
+              : "…"}
         </pre>
       </Spin>
     </Modal>

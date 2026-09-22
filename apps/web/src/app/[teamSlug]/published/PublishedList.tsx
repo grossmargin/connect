@@ -2,7 +2,7 @@
 
 import { App, Button, Popconfirm, Table, Tag, Tooltip } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { DeleteOutlined, EditOutlined, PlusOutlined } from "@ant-design/icons";
+import { ApiOutlined, AppstoreOutlined, DeleteOutlined, EditOutlined, PlusOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { deleteScope } from "./actions";
@@ -15,8 +15,8 @@ export type ScopeRow = {
   name: string;
   slug: string;
   isDefault: boolean;
-  connectionCount: number;
-  groupCount: number;
+  connections: string[];
+  groups: { slug: string; tenants: string[] }[];
 };
 
 export function PublishedList({ scopes }: { scopes: ScopeRow[] }) {
@@ -57,23 +57,17 @@ export function PublishedList({ scopes }: { scopes: ScopeRow[] }) {
     {
       title: "Endpoint",
       key: "endpoint",
-      width: 260,
-      render: (_, s) => <CopyId value={path(s)} />,
+      width: 200,
+      render: (_, s) => (
+        <div className="whitespace-nowrap">
+          <CopyId value={path(s)} />
+        </div>
+      ),
     },
     {
       title: "Members",
       key: "members",
-      width: 200,
-      render: (_, s) => {
-        const parts: string[] = [];
-        if (s.connectionCount) parts.push(`${s.connectionCount} MCP${s.connectionCount === 1 ? "" : "s"}`);
-        if (s.groupCount) parts.push(`${s.groupCount} group${s.groupCount === 1 ? "" : "s"}`);
-        return parts.length ? (
-          <span className="text-sm text-gray-600">{parts.join(" · ")}</span>
-        ) : (
-          <span className="text-sm text-gray-400">None</span>
-        );
-      },
+      render: (_, s) => <Members scope={s} />,
     },
     {
       title: "",
@@ -125,9 +119,74 @@ export function PublishedList({ scopes }: { scopes: ScopeRow[] }) {
         columns={columns}
         dataSource={scopes}
         pagination={false}
-        onRow={(s) => ({ onClick: () => router.push(editHref(s)), className: "group cursor-pointer" })}
+        onRow={(s) => ({ onClick: () => router.push(editHref(s)), className: "group cursor-pointer align-top" })}
         locale={{ emptyText: "No published MCPs" }}
       />
     </Page>
+  );
+}
+
+// A slug chip. Border is always present but transparent, so the hover color
+// causes no layout shift. `tone` picks the palette.
+function Chip({
+  children,
+  tone = "gray",
+  icon,
+}: {
+  children: React.ReactNode;
+  tone?: "gray" | "indigo" | "muted";
+  icon?: React.ReactNode;
+}) {
+  const palette = {
+    gray: "bg-gray-100 text-gray-700 hover:border-gray-400",
+    indigo: "bg-indigo-50 text-indigo-700 font-medium hover:border-indigo-400",
+    muted: "bg-gray-50 text-gray-500 hover:border-gray-300",
+  }[tone];
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded border border-transparent px-1 py-px font-mono transition-colors ${palette}`}
+    >
+      {icon}
+      {children}
+    </span>
+  );
+}
+
+// Lists every MCP the endpoint serves: individual members, then each group with
+// its tenant slugs. Dense, tiny font.
+function Members({ scope }: { scope: ScopeRow }) {
+  const { connections, groups } = scope;
+  if (connections.length === 0 && groups.length === 0) {
+    return <span className="text-sm text-gray-400">None</span>;
+  }
+  return (
+    <div className="flex flex-col gap-1 py-1 text-[11px] leading-tight">
+      {connections.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1">
+          {connections.map((c) => (
+            <Chip key={c} icon={<ApiOutlined className="text-[10px] text-gray-400" />}>
+              {c}
+            </Chip>
+          ))}
+        </div>
+      )}
+      {groups.map((g) => (
+        <div key={g.slug} className="flex flex-wrap items-center gap-1">
+          <Chip tone="indigo" icon={<AppstoreOutlined className="text-[10px]" />}>
+            {g.slug}
+          </Chip>
+          <span className="text-gray-300">·</span>
+          {g.tenants.length === 0 ? (
+            <span className="italic text-gray-400">no tenants</span>
+          ) : (
+            g.tenants.map((t) => (
+              <Chip key={t} tone="muted">
+                {t}
+              </Chip>
+            ))
+          )}
+        </div>
+      ))}
+    </div>
   );
 }

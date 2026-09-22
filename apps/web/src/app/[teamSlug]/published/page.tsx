@@ -14,7 +14,11 @@ export default async function PublishedMcpsPage({ params }: { params: Promise<{ 
     where: { teamId: team.id },
     orderBy: [{ isDefault: "desc" }, { name: "asc" }],
     include: {
-      _count: { select: { connections: true, groups: true } },
+      connections: { select: { slug: true }, orderBy: { slug: "asc" } },
+      groups: {
+        orderBy: { slug: "asc" },
+        select: { slug: true, tenants: { select: { slug: true }, orderBy: { slug: "asc" } } },
+      },
     },
   });
 
@@ -23,8 +27,8 @@ export default async function PublishedMcpsPage({ params }: { params: Promise<{ 
     name: s.name,
     slug: s.slug,
     isDefault: s.isDefault,
-    connectionCount: s._count.connections,
-    groupCount: s._count.groups,
+    connections: s.connections.map((c) => c.slug),
+    groups: s.groups.map((g) => ({ slug: g.slug, tenants: g.tenants.map((t) => t.slug) })),
   }));
 
   return <PublishedList scopes={rows} />;

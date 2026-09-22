@@ -2,19 +2,19 @@ import { gunzipSync } from "zlib";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/server/db";
 import { extractKey, flattenSignal, verifyIntakeKey } from "@/lib/server/otlp";
-import { getTeamByIdOrSlug } from "@/lib/server/team";
+import { getTeamBySlug } from "@/lib/server/team";
 
 export const dynamic = "force-dynamic";
 
 // OTLP/HTTP JSON intake for Claude Code / Cowork telemetry.
-// The native OTel exporter posts to `${APP_URL}/<teamIdOrSlug>/otlp/v1/{traces|metrics|logs}`.
+// The native OTel exporter posts to `${APP_URL}/<teamSlug>/otlp/v1/{traces|metrics|logs}`.
 // Spans and log records are stored (one row per leaf); metrics are acknowledged
 // but discarded. Any valid intake key authenticates for any team.
 
 const SIGNALS = new Set(["traces", "metrics", "logs"]);
 
-export async function POST(req: Request, ctx: { params: Promise<{ teamIdOrSlug: string; signal: string }> }) {
-  const { teamIdOrSlug, signal } = await ctx.params;
+export async function POST(req: Request, ctx: { params: Promise<{ teamSlug: string; signal: string }> }) {
+  const { teamSlug, signal } = await ctx.params;
 
   if (!SIGNALS.has(signal)) return notFound();
 
@@ -24,7 +24,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ teamIdOrSlug: 
   }
 
   // The path segment (caller-controlled) is a team id or slug: require a real Team.
-  const team = await getTeamByIdOrSlug(teamIdOrSlug);
+  const team = await getTeamBySlug(teamSlug);
   if (!team) return notFound();
   const teamId = team.id;
 

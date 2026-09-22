@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/server/db";
-import { isUuid } from "@/lib/isomorphic/ids";
 import { requireUser } from "@/lib/server/session";
 import { userInTeam } from "@/lib/server/access";
 
@@ -8,20 +7,21 @@ import { userInTeam } from "@/lib/server/access";
 // the slug for URLs.
 export type ResolvedTeam = { id: string; name: string; slug: string };
 
-// The team addressed by a URL segment, which may be the slug (the public id) or
-// the uuid — the uuid is accepted so old links (and the uuid backfill) keep
-// working. Slugs are `[A-Za-z0-9_]` so they can never look like a uuid.
-export async function getTeamByIdOrSlug(idOrSlug: string): Promise<ResolvedTeam | null> {
+// The team addressed by a URL segment. Resolved by slug only — a raw team id is
+// not an addressing scheme, so one team can't be reached by another's id.
+// Teams that never set a custom slug were backfilled with slug === their uuid,
+// so those still resolve by that value (it is their slug).
+export async function getTeamBySlug(slug: string): Promise<ResolvedTeam | null> {
   return prisma.team.findFirst({
-    where: isUuid(idOrSlug) ? { OR: [{ slug: idOrSlug }, { id: idOrSlug }] } : { slug: idOrSlug },
+    where: { slug },
     select: { id: true, name: true, slug: true },
   });
 }
 
-// Page guard: resolve the id/slug, require a signed-in member, or 404. Returns
-// the team so the caller can query by team.id.
-export async function requireTeam(idOrSlug: string): Promise<ResolvedTeam> {
-  const team = await getTeamByIdOrSlug(idOrSlug);
+// Page guard: resolve the slug, require a signed-in member, or 404. Returns the
+// team so the caller can query by team.id.
+export async function requireTeam(slug: string): Promise<ResolvedTeam> {
+  const team = await getTeamBySlug(slug);
   if (!team) notFound();
   const user = await requireUser();
   if (!(await userInTeam(user.id, team.id))) notFound();

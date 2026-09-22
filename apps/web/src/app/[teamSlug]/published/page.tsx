@@ -3,8 +3,8 @@ import { requireTeam } from "@/lib/server/team";
 import { getOrCreateDefaultScope } from "@/lib/server/scopes";
 import { PublishedList, type ScopeRow } from "./PublishedList";
 
-export default async function PublishedMcpsPage({ params }: { params: Promise<{ teamIdOrSlug: string }> }) {
-  const { teamIdOrSlug: teamSlug } = await params;
+export default async function PublishedMcpsPage({ params }: { params: Promise<{ teamSlug: string }> }) {
+  const { teamSlug } = await params;
   const team = await requireTeam(teamSlug);
 
   // Ensure the default Published MCP exists (served at the team root).

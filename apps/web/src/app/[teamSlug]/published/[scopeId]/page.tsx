@@ -6,9 +6,9 @@ import { EditPublished, type ConnOption, type GroupData } from "./EditPublished"
 export default async function EditPublishedMcpPage({
   params,
 }: {
-  params: Promise<{ teamIdOrSlug: string; scopeId: string }>;
+  params: Promise<{ teamSlug: string; scopeId: string }>;
 }) {
-  const { teamIdOrSlug: teamSlug, scopeId } = await params;
+  const { teamSlug, scopeId } = await params;
   const team = await requireTeam(teamSlug);
 
   const scope = await prisma.mcpScope.findUnique({

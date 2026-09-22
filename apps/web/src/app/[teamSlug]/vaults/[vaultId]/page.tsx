@@ -8,9 +8,9 @@ import { VaultView } from "./VaultView";
 export default async function VaultPage({
   params,
 }: {
-  params: Promise<{ teamIdOrSlug: string; vaultId: string }>;
+  params: Promise<{ teamSlug: string; vaultId: string }>;
 }) {
-  const { teamIdOrSlug: teamSlug, vaultId } = await params;
+  const { teamSlug, vaultId } = await params;
   if (!isUuid(vaultId)) notFound();
   const team = await requireTeam(teamSlug);
 

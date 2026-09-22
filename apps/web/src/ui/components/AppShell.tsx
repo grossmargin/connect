@@ -4,6 +4,7 @@ import { Avatar, Button, Dropdown, Layout, Menu } from "antd";
 import type { MenuProps } from "antd";
 import {
   ApiOutlined,
+  BarChartOutlined,
   DownOutlined,
   FolderOutlined,
   LogoutOutlined,
@@ -40,6 +41,7 @@ export function AppShell({
   userName,
   email,
   counts,
+  isAdmin = false,
   children,
 }: {
   teamId: string;
@@ -48,6 +50,7 @@ export function AppShell({
   userName?: string | null;
   email?: string | null;
   counts: { connections: number; scopes: number };
+  isAdmin?: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -73,6 +76,15 @@ export function AppShell({
       icon: <SettingOutlined />,
       label: <Link href={`${base}/settings`}>{navLabel("Team Settings")}</Link>,
     },
+    ...(isAdmin
+      ? [
+          {
+            key: `${base}/stats`,
+            icon: <BarChartOutlined />,
+            label: <Link href={`${base}/stats`}>{navLabel("Team Stats")}</Link>,
+          },
+        ]
+      : []),
   ];
 
   const displayName = userName || email || "Account";

@@ -23,3 +23,19 @@ export async function userInTeam(userId: string, teamId: string): Promise<boolea
   });
   return !!m;
 }
+
+// Roles that may see admin-only surfaces (e.g. Team Stats). The role column is a
+// free-form string defaulting to ADMIN, so members created so far are admins.
+const ADMIN_ROLES = new Set(["ADMIN", "OWNER"]);
+
+export function isAdminRole(role: string | null | undefined): boolean {
+  return !!role && ADMIN_ROLES.has(role.toUpperCase());
+}
+
+export async function userIsTeamAdmin(userId: string, teamId: string): Promise<boolean> {
+  const m = await prisma.teamMembership.findUnique({
+    where: { userId_teamId: { userId, teamId } },
+    select: { role: true },
+  });
+  return isAdminRole(m?.role);
+}

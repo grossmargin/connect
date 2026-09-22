@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/server/db";
 import { requireUser } from "@/lib/server/session";
-import { userInTeam } from "@/lib/server/access";
+import { userInTeam, userIsTeamAdmin } from "@/lib/server/access";
 
 // Resolved team, as pages and MCP mounts need it: the uuid for DB queries and
 // the slug for URLs.
@@ -25,5 +25,15 @@ export async function requireTeam(slug: string): Promise<ResolvedTeam> {
   if (!team) notFound();
   const user = await requireUser();
   if (!(await userInTeam(user.id, team.id))) notFound();
+  return team;
+}
+
+// Page guard for admin-only surfaces: like requireTeam, but 404s a member who
+// is not a team admin so the page is indistinguishable from not existing.
+export async function requireTeamAdmin(slug: string): Promise<ResolvedTeam> {
+  const team = await getTeamBySlug(slug);
+  if (!team) notFound();
+  const user = await requireUser();
+  if (!(await userIsTeamAdmin(user.id, team.id))) notFound();
   return team;
 }

@@ -10,6 +10,8 @@ export const RESERVED_SLUGS = new Set([
   "mcp",
   "login",
   "no-team",
+  "account",
+  "invite",
   "callback",
   "quickbooks-disconnect",
   "_next",

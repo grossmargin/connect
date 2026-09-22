@@ -5,6 +5,7 @@ import { baseUrl } from "@/lib/server/oauth";
 import { resolvePrincipal, type Principal } from "@/lib/server/mcp";
 import { logMcpCall } from "@/lib/server/mcpLog";
 import { serveTeamMcp, serveUnauthenticatedMcp } from "@/lib/server/mcpMount";
+import { resolveUserTeamId } from "@/lib/server/team";
 
 // Log a tools/call we reject before the MCP handler runs (e.g. team ambiguous),
 // so auth/routing failures aren't invisible. Best-effort; reads the JSON-RPC
@@ -37,9 +38,10 @@ function isMcpRequest(req: Request): boolean {
   return (req.headers.get("accept") ?? "").includes("text/event-stream");
 }
 
-// The root MCP mount serves exactly one team. When the caller belongs to a
-// single team we use it; otherwise we can't decide, so we error and point them
-// at the per-team mount (/<teamSlug>). A service account is always one team.
+// The root MCP mount serves one team, picked for the caller: a service account
+// is always single-team; a user gets their default team, else their oldest
+// team. A named endpoint (/<teamSlug>) still overrides this. Only a caller with
+// no team at all is rejected.
 async function serveMcp(req: Request) {
   const authz = req.headers.get("authorization") ?? "";
   const bearer = authz.startsWith("Bearer ") ? authz.slice(7) : undefined;
@@ -48,16 +50,16 @@ async function serveMcp(req: Request) {
   // No/invalid token — let the MCP auth layer return a proper 401.
   if (!principal) return serveUnauthenticatedMcp(req);
 
-  if (principal.teamIds.length !== 1) {
-    const msg =
-      principal.teamIds.length === 0
-        ? "You are not a member of any team."
-        : "You belong to multiple teams. Connect to a team explicitly at /<teamSlug>.";
+  const teamId =
+    principal.kind === "sa" ? principal.teamIds[0] : await resolveUserTeamId(principal.userId);
+
+  if (!teamId) {
+    const msg = "You are not a member of any team.";
     await logRejectedCall(req, principal, msg);
-    return NextResponse.json({ error: "team_ambiguous", message: msg }, { status: 409 });
+    return NextResponse.json({ error: "no_team", message: msg }, { status: 409 });
   }
 
-  return serveTeamMcp(req, principal.teamIds[0]);
+  return serveTeamMcp(req, teamId);
 }
 
 async function redirectBrowser(req: Request) {
@@ -65,12 +67,10 @@ async function redirectBrowser(req: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.redirect(`${base}/login`);
 
-  const membership = await prisma.teamMembership.findFirst({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: "asc" },
-    include: { team: { select: { slug: true } } },
-  });
-  return NextResponse.redirect(membership ? `${base}/${membership.team.slug}` : `${base}/no-team`);
+  const teamId = await resolveUserTeamId(session.user.id);
+  if (!teamId) return NextResponse.redirect(`${base}/no-team`);
+  const team = await prisma.team.findUnique({ where: { id: teamId }, select: { slug: true } });
+  return NextResponse.redirect(team ? `${base}/${team.slug}` : `${base}/no-team`);
 }
 
 export async function GET(req: Request) {

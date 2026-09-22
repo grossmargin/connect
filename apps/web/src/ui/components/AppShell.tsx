@@ -5,18 +5,25 @@ import type { MenuProps } from "antd";
 import {
   ApiOutlined,
   BarChartOutlined,
+  CheckOutlined,
   DownOutlined,
   FolderOutlined,
   LogoutOutlined,
+  PlusOutlined,
   SafetyCertificateOutlined,
   SettingOutlined,
   ShareAltOutlined,
+  SwapOutlined,
+  UserOutlined,
 } from "@ant-design/icons";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useTransition } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
 import { doSignOut } from "@/app/actions";
+import { CreateTeamModal } from "@/ui/components/CreateTeam";
 import { TeamProvider } from "@/ui/components/TeamContext";
+
+export type TeamOption = { id: string; name: string; slug: string };
 
 const { Sider, Content } = Layout;
 
@@ -38,6 +45,7 @@ export function AppShell({
   teamId,
   teamSlug,
   teamName,
+  teams = [],
   userName,
   email,
   counts,
@@ -47,6 +55,7 @@ export function AppShell({
   teamId: string;
   teamSlug: string;
   teamName: string;
+  teams?: TeamOption[];
   userName?: string | null;
   email?: string | null;
   counts: { connections: number; scopes: number };
@@ -54,8 +63,10 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const base = `/${teamSlug}`;
   const [, start] = useTransition();
+  const [newTeamOpen, setNewTeamOpen] = useState(false);
 
   const vaultsActive = pathname === base || pathname.startsWith(`${base}/vaults`);
 
@@ -89,20 +100,48 @@ export function AppShell({
 
   const displayName = userName || email || "Account";
 
+  const switcherItems: MenuProps["items"] = [
+    { key: "teams-label", type: "group", label: "Switch team" },
+    ...teams.map((t) => ({
+      key: `team-${t.slug}`,
+      icon: t.id === teamId ? <CheckOutlined /> : <span className="inline-block w-3.5" />,
+      label: t.name,
+      onClick: () => router.push(`/${t.slug}`),
+    })),
+    { type: "divider" as const },
+    {
+      key: "new-team",
+      icon: <PlusOutlined />,
+      label: "New team",
+      onClick: () => setNewTeamOpen(true),
+    },
+    {
+      key: "account",
+      icon: <UserOutlined />,
+      label: <Link href="/account">Account settings</Link>,
+    },
+  ];
+
   return (
     <TeamProvider team={{ teamId, teamSlug, teamName }}>
       <Layout style={{ minHeight: "100dvh" }}>
         <Sider theme="light" width={260} className="!border-r !border-gray-200">
           <div className="flex h-full flex-col">
-            <Link href={base} className="flex items-center gap-3 px-5 py-5 text-inherit">
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-600 text-white">
-                <SafetyCertificateOutlined />
-              </span>
-              <span className="flex flex-col leading-tight">
-                <span className="font-semibold text-gray-900">Grossmargin</span>
-                <span className="text-[11px] font-medium uppercase tracking-widest text-gray-400">Connect</span>
-              </span>
-            </Link>
+            <Dropdown trigger={["click"]} menu={{ items: switcherItems }}>
+              <button
+                type="button"
+                className="flex w-full cursor-pointer items-center gap-3 border-0 bg-transparent px-5 py-5 text-left hover:bg-gray-50"
+              >
+                <span className="flex h-9 w-9 flex-none items-center justify-center rounded-lg bg-indigo-600 text-white">
+                  <SafetyCertificateOutlined />
+                </span>
+                <span className="flex min-w-0 flex-1 flex-col leading-tight">
+                  <span className="truncate font-semibold text-gray-900">{teamName}</span>
+                  <span className="text-[11px] font-medium uppercase tracking-widest text-gray-400">Connect</span>
+                </span>
+                <SwapOutlined rotate={90} className="flex-none text-gray-400" />
+              </button>
+            </Dropdown>
 
             <div className="px-6 pb-2 pt-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
               Workspace
@@ -120,6 +159,12 @@ export function AppShell({
                 trigger={["click"]}
                 menu={{
                   items: [
+                    {
+                      key: "account",
+                      icon: <UserOutlined />,
+                      label: <Link href="/account">Account settings</Link>,
+                    },
+                    { type: "divider" as const },
                     {
                       key: "signout",
                       icon: <LogoutOutlined />,
@@ -172,6 +217,7 @@ export function AppShell({
           <Content>{children}</Content>
         </Layout>
       </Layout>
+      <CreateTeamModal open={newTeamOpen} onClose={() => setNewTeamOpen(false)} />
     </TeamProvider>
   );
 }

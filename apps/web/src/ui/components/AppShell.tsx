@@ -1,6 +1,6 @@
 "use client";
 
-import { Avatar, Dropdown, Layout, Menu } from "antd";
+import { Avatar, Button, Dropdown, Layout, Menu } from "antd";
 import type { MenuProps } from "antd";
 import {
   ApiOutlined,
@@ -117,7 +117,11 @@ export function AppShell({
                   ],
                 }}
               >
-                <button className="flex w-full cursor-pointer items-center gap-3 rounded-lg border-0 bg-transparent px-2 py-2 text-left hover:bg-gray-50">
+                <Button
+                  type="text"
+                  block
+                  className="!flex !h-auto w-full cursor-pointer items-center gap-3 rounded-lg px-2 py-2 text-left"
+                >
                   <Avatar className="!bg-gray-900 !text-white" size={36}>
                     {initials(displayName)}
                   </Avatar>
@@ -126,7 +130,7 @@ export function AppShell({
                     {email && <span className="truncate text-xs text-gray-400">{email}</span>}
                   </span>
                   <DownOutlined className="text-gray-400" />
-                </button>
+                </Button>
               </Dropdown>
 
               <div className="mt-2 px-2 text-[11px] text-gray-400">

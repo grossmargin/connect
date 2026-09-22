@@ -1,6 +1,6 @@
 "use client";
 
-import { Tooltip, Typography } from "antd";
+import { Button, Tooltip, Typography } from "antd";
 import { CheckOutlined, CopyOutlined } from "@ant-design/icons";
 import { useEffect, useRef, useState } from "react";
 
@@ -28,16 +28,16 @@ export function CopyId({ value }: { value: string }) {
     <span className="inline-flex items-center gap-1.5">
       <Typography.Text code>{value}</Typography.Text>
       <Tooltip title={copied ? "Copied" : "Copy id"}>
-        <button
-          type="button"
+        <Button
+          type="text"
+          size="small"
           onClick={copy}
           aria-label="Copy id"
-          className={`cursor-pointer border-0 bg-transparent p-0.5 leading-none transition ${
-            copied ? "text-green-600 opacity-100" : "text-gray-400 opacity-0 hover:text-indigo-600 group-hover:opacity-100"
+          icon={copied ? <CheckOutlined /> : <CopyOutlined />}
+          className={`!p-0.5 transition ${
+            copied ? "!text-green-600 opacity-100" : "opacity-0 group-hover:opacity-100"
           }`}
-        >
-          {copied ? <CheckOutlined /> : <CopyOutlined />}
-        </button>
+        />
       </Tooltip>
     </span>
   );

@@ -5,9 +5,9 @@ import { AppstoreOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { createScope } from "../actions";
-import { Page } from "../../../Page";
-import { DetailHeader } from "../../../DetailHeader";
-import { useCurrentTeam } from "../../../TeamContext";
+import { Page } from "@/ui/components/Page";
+import { DetailHeader } from "@/ui/components/DetailHeader";
+import { useCurrentTeam } from "@/ui/components/TeamContext";
 
 export default function NewPublishedMcpPage() {
   const router = useRouter();

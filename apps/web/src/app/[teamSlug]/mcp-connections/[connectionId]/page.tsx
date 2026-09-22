@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/db";
-import { isUuid } from "@/lib/ids";
-import { requireTeam } from "@/lib/team";
+import { prisma } from "@/lib/server/db";
+import { isUuid } from "@/lib/isomorphic/ids";
+import { requireTeam } from "@/lib/server/team";
 import { EditConnection } from "./EditConnection";
 import type { ConnectionStatus } from "../status";
 

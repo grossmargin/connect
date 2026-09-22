@@ -2,15 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { prisma } from "@/lib/db";
-import { requireUser } from "@/lib/session";
-import { userCanAccessVault, userInTeam } from "@/lib/access";
-import { encryptContent, decryptContent } from "@/lib/crypto";
-import { generateServiceAccountKey } from "@/lib/tokens";
-import { audit } from "@/lib/audit";
-import { fetchNangoToken, parseNangoRef, NangoError } from "@/lib/nango";
+import { prisma } from "@/lib/server/db";
+import { requireUser } from "@/lib/server/session";
+import { userCanAccessVault, userInTeam } from "@/lib/server/access";
+import { encryptContent, decryptContent } from "@/lib/server/crypto";
+import { generateServiceAccountKey } from "@/lib/server/tokens";
+import { audit } from "@/lib/server/audit";
+import { fetchNangoToken, parseNangoRef, NangoError } from "@/lib/server/nango";
 import { Prisma } from "@prisma/client";
-import type { CredentialType } from "@/lib/dbEnums";
+import type { CredentialType } from "@/lib/isomorphic/dbEnums";
 
 // Builds the content/credentialRef pair for a credential of the given type.
 // NANGO stores a pointer, not a secret; the others store an encrypted value.

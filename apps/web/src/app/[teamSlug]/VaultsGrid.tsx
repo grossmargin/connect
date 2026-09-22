@@ -1,13 +1,13 @@
 "use client";
 
-import { App, Button, Form, Input, Modal } from "antd";
+import { App, Button, Card, Form, Input, Modal } from "antd";
 import { ArrowRightOutlined, FolderOpenOutlined, KeyOutlined, PlusOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { createVault } from "../actions";
-import { Page, PageIntro } from "../Page";
-import { useCurrentTeam } from "../TeamContext";
-import { timeAgo } from "@/lib/timeAgo";
+import { Page, PageIntro } from "@/ui/components/Page";
+import { useCurrentTeam } from "@/ui/components/TeamContext";
+import { timeAgo } from "@/lib/isomorphic/timeAgo";
 
 type Vault = {
   id: string;
@@ -36,10 +36,12 @@ export function VaultsGrid({ vaults }: { vaults: Vault[] }) {
 
       <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4">
         {vaults.map((v) => (
-          <button
+          <Card
             key={v.id}
+            hoverable
             onClick={() => router.push(`/${teamSlug}/vaults/${v.id}`)}
-            className="group flex cursor-pointer flex-col rounded-xl border border-gray-200 bg-white p-5 text-left transition hover:border-indigo-300 hover:shadow-sm"
+            classNames={{ body: "!p-5" }}
+            className="group !rounded-xl"
           >
             <div className="flex items-start justify-between">
               <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
@@ -57,17 +59,18 @@ export function VaultsGrid({ vaults }: { vaults: Vault[] }) {
               <span className="px-1">·</span>
               Updated {timeAgo(v.updatedAt)}
             </div>
-          </button>
+          </Card>
         ))}
 
-        <button
+        <Button
+          type="dashed"
           onClick={() => setOpen(true)}
-          className="flex min-h-[168px] cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-gray-300 bg-transparent p-5 text-gray-500 transition hover:border-indigo-400 hover:text-indigo-600"
+          className="!flex !h-auto min-h-[168px] flex-col items-center justify-center gap-1 !rounded-xl"
         >
           <PlusOutlined className="text-lg" />
           <span className="font-medium text-gray-700">New vault</span>
           <span className="text-xs text-gray-400">Store a new set of credentials</span>
-        </button>
+        </Button>
       </div>
 
       <NewVaultModal open={open} onClose={() => setOpen(false)} />

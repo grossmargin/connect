@@ -1,5 +1,5 @@
 import { Card, Empty } from "antd";
-import { requireUser } from "@/lib/session";
+import { requireUser } from "@/lib/server/session";
 
 export default async function NoTeamPage() {
   await requireUser();

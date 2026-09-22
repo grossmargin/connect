@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { Card, Result } from "antd";
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/server/db";
 import { auth } from "@/auth";
-import { OAUTH_SCOPE } from "@/lib/oauth";
+import { OAUTH_SCOPE } from "@/lib/server/oauth";
+import { serverEnv } from "@/lib/server/serverEnv";
 import { ConsentForm } from "./ConsentForm";
 
 type SP = Record<string, string | string[] | undefined>;
@@ -13,7 +14,7 @@ function one(v: string | string[] | undefined): string | undefined {
 }
 
 async function baseUrl(): Promise<string> {
-  if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, "");
+  if (serverEnv.APP_URL) return serverEnv.APP_URL.replace(/\/$/, "");
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host");
   const proto = h.get("x-forwarded-proto") ?? "http";

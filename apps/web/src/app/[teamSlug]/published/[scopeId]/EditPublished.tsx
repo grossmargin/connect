@@ -13,10 +13,10 @@ import {
   updateGroup,
   deleteGroup,
 } from "../actions";
-import { CopyId } from "../../../CopyId";
-import { Page } from "../../../Page";
-import { DetailHeader } from "../../../DetailHeader";
-import { useCurrentTeam } from "../../../TeamContext";
+import { CopyId } from "@/ui/components/CopyId";
+import { Page } from "@/ui/components/Page";
+import { DetailHeader } from "@/ui/components/DetailHeader";
+import { useCurrentTeam } from "@/ui/components/TeamContext";
 
 export type ConnOption = { id: string; name: string; slug: string };
 export type GroupData = { id: string; name: string; slug: string; tenantIds: string[] };

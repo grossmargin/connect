@@ -18,11 +18,11 @@ import remarkGfm from "remark-gfm";
 import { updateConnection, startAuthorize, testConnection, deleteConnection } from "../actions";
 import { ConnectionTechModal } from "../ConnectionTechModal";
 import { STATUS_TAG, type ConnectionStatus } from "../status";
-import { DetailHeader } from "../../../DetailHeader";
-import { Page } from "../../../Page";
-import { StatusPill } from "../../../StatusPill";
-import { useCurrentTeam } from "../../../TeamContext";
-import { timeAgo } from "@/lib/timeAgo";
+import { DetailHeader } from "@/ui/components/DetailHeader";
+import { Page } from "@/ui/components/Page";
+import { StatusPill } from "@/ui/components/StatusPill";
+import { useCurrentTeam } from "@/ui/components/TeamContext";
+import { timeAgo } from "@/lib/isomorphic/timeAgo";
 
 type ToolInfo = { name: string; description?: string };
 type Usage = { scopeId: string; label: string };

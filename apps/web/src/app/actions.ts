@@ -2,9 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/db";
-import { requireUser } from "@/lib/session";
-import { userInTeam } from "@/lib/access";
+import { prisma } from "@/lib/server/db";
+import { requireUser } from "@/lib/server/session";
+import { userInTeam } from "@/lib/server/access";
 import { signIn, signOut } from "@/auth";
 
 export async function googleSignIn(callbackUrl?: string) {

@@ -3,7 +3,7 @@
 import { Alert, Button, Card, Descriptions, Input, Typography } from "antd";
 import { SafetyOutlined } from "@ant-design/icons";
 import { useState, useTransition } from "react";
-import { approveAuthorization, denyAuthorization, type AuthzParams } from "./consent-actions";
+import { approveAuthorization, denyAuthorization, type AuthzParams } from "./ConsentForm.actions";
 
 const CONFIRM_PHRASE = "I understand";
 

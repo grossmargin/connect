@@ -4,7 +4,8 @@ import { Alert, App, Button, Form, Input, Modal, Popconfirm, Table, Tooltip, Typ
 import type { ColumnsType } from "antd/es/table";
 import { DeleteOutlined, EditOutlined, KeyOutlined, PlusOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   addServiceAccountKey,
   createServiceAccount,
@@ -14,9 +15,9 @@ import {
   revokeServiceAccountKey,
   type ServiceAccountKeyInfo,
 } from "./actions";
-import { CopyId } from "../../CopyId";
-import { useCurrentTeam } from "../../TeamContext";
-import { timeAgo } from "@/lib/timeAgo";
+import { CopyId } from "@/ui/components/CopyId";
+import { useCurrentTeam } from "@/ui/components/TeamContext";
+import { timeAgo } from "@/lib/isomorphic/timeAgo";
 
 export type ServiceAccountRow = {
   id: string;
@@ -254,50 +255,51 @@ function ManageKeysModal({
 }) {
   const router = useRouter();
   const { message } = App.useApp();
-  const [keys, setKeys] = useState<ServiceAccountKeyInfo[] | null>(null);
-  const [loading, startLoad] = useTransition();
-  const [mutating, startMutate] = useTransition();
+  const queryClient = useQueryClient();
+  const keysKey = ["sa-keys", teamId, sa.id];
 
-  const reload = () =>
-    startLoad(async () => {
+  const keysQuery = useQuery({
+    queryKey: keysKey,
+    enabled: open,
+    queryFn: async () => {
       const r = await listServiceAccountKeys(teamId, sa.id);
-      if ("error" in r) {
-        message.error(r.error);
-        return;
-      }
-      setKeys(r.keys);
-    });
+      if ("error" in r) throw new Error(r.error);
+      return r.keys;
+    },
+  });
+  const keys = keysQuery.data ?? null;
+  const loading = keysQuery.isFetching;
 
-  useEffect(() => {
-    if (!open) return;
-    setKeys(null);
-    reload();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, sa.id]);
-
-  const addKey = () =>
-    startMutate(async () => {
+  const addMutation = useMutation({
+    mutationFn: async () => {
       const r = await addServiceAccountKey(teamId, sa.id);
-      if ("error" in r) {
-        message.error(r.error);
-        return;
-      }
-      onReveal(r.key);
-      reload();
+      if ("error" in r) throw new Error(r.error);
+      return r.key;
+    },
+    onSuccess: (key) => {
+      onReveal(key);
+      queryClient.invalidateQueries({ queryKey: keysKey });
       router.refresh();
-    });
+    },
+    onError: (e) => message.error(e instanceof Error ? e.message : "Failed"),
+  });
 
-  const revoke = (keyId: string) =>
-    startMutate(async () => {
+  const revokeMutation = useMutation({
+    mutationFn: async (keyId: string) => {
       const r = await revokeServiceAccountKey(teamId, keyId);
-      if ("error" in r) {
-        message.error(r.error);
-        return;
-      }
+      if ("error" in r) throw new Error(r.error);
+    },
+    onSuccess: () => {
       message.success("Key revoked");
-      reload();
+      queryClient.invalidateQueries({ queryKey: keysKey });
       router.refresh();
-    });
+    },
+    onError: (e) => message.error(e instanceof Error ? e.message : "Failed"),
+  });
+
+  const mutating = addMutation.isPending || revokeMutation.isPending;
+  const addKey = () => addMutation.mutate();
+  const revoke = (keyId: string) => revokeMutation.mutate(keyId);
 
   const columns: ColumnsType<ServiceAccountKeyInfo> = [
     {

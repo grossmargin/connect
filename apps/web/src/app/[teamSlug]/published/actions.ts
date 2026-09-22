@@ -2,11 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/db";
-import { requireUser } from "@/lib/session";
-import { userInTeam } from "@/lib/access";
-import { slugify } from "@/lib/slug";
-import { isTeamSubroute } from "@/lib/reservedSlugs";
+import { prisma } from "@/lib/server/db";
+import { requireUser } from "@/lib/server/session";
+import { userInTeam } from "@/lib/server/access";
+import { slugify } from "@/lib/isomorphic/slug";
+import { isTeamSubroute } from "@/lib/isomorphic/reservedSlugs";
 
 async function requireMember(teamId: string): Promise<boolean> {
   const user = await requireUser();

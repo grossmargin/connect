@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/db";
-import { getTeamBySlug } from "@/lib/team";
+import { prisma } from "@/lib/server/db";
+import { getTeamBySlug } from "@/lib/server/team";
 import { VaultsGrid } from "./VaultsGrid";
 
 export default async function TeamHomePage({ params }: { params: Promise<{ teamSlug: string }> }) {

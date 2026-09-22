@@ -5,9 +5,9 @@ import { FolderOpenOutlined, KeyOutlined, SettingOutlined } from "@ant-design/ic
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CredentialsTab, type Cred } from "./CredentialsTab";
 import { PropertiesTab } from "./PropertiesTab";
-import { DetailHeader } from "../../../DetailHeader";
-import { Page } from "../../../Page";
-import { useCurrentTeam } from "../../../TeamContext";
+import { DetailHeader } from "@/ui/components/DetailHeader";
+import { Page } from "@/ui/components/Page";
+import { useCurrentTeam } from "@/ui/components/TeamContext";
 
 const TABS = ["credentials", "properties"] as const;
 type TabKey = (typeof TABS)[number];

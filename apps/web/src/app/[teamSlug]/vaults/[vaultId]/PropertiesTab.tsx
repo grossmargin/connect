@@ -5,7 +5,7 @@ import { DeleteOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { deleteVault, updateVault } from "./actions";
-import { useCurrentTeam } from "../../../TeamContext";
+import { useCurrentTeam } from "@/ui/components/TeamContext";
 
 export function PropertiesTab({
   vaultId,

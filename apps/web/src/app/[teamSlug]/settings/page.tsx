@@ -1,5 +1,5 @@
-import { prisma } from "@/lib/db";
-import { requireTeam } from "@/lib/team";
+import { prisma } from "@/lib/server/db";
+import { requireTeam } from "@/lib/server/team";
 import { SettingsView, type MemberRow, type ServiceAccountRow } from "./SettingsView";
 
 export default async function TeamSettingsPage({ params }: { params: Promise<{ teamSlug: string }> }) {

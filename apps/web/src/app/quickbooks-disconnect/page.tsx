@@ -1,7 +1,7 @@
-import { prisma } from "@/lib/db";
-import { requireUser } from "@/lib/session";
-import { userTeamIds } from "@/lib/access";
-import { getNangoConnectionInfo, isQuickbooksProvider, parseNangoRef } from "@/lib/nango";
+import { prisma } from "@/lib/server/db";
+import { requireUser } from "@/lib/server/session";
+import { userTeamIds } from "@/lib/server/access";
+import { getNangoConnectionInfo, isQuickbooksProvider, parseNangoRef } from "@/lib/server/nango";
 import { DisconnectList, type QbRow } from "./DisconnectList";
 
 // QuickBooks disconnect page — required for Intuit app review. Lists every

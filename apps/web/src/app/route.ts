@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { prisma } from "@/lib/db";
-import { baseUrl } from "@/lib/oauth";
-import { resolvePrincipal, type Principal } from "@/lib/mcp";
-import { logMcpCall } from "@/lib/mcpLog";
-import { serveTeamMcp, serveUnauthenticatedMcp } from "@/lib/mcpMount";
+import { prisma } from "@/lib/server/db";
+import { baseUrl } from "@/lib/server/oauth";
+import { resolvePrincipal, type Principal } from "@/lib/server/mcp";
+import { logMcpCall } from "@/lib/server/mcpLog";
+import { serveTeamMcp, serveUnauthenticatedMcp } from "@/lib/server/mcpMount";
 
 // Log a tools/call we reject before the MCP handler runs (e.g. team ambiguous),
 // so auth/routing failures aren't invisible. Best-effort; reads the JSON-RPC

@@ -1,15 +1,12 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/server/db";
 import { auth } from "@/auth";
-import { userInTeam } from "@/lib/access";
-import { kvTake } from "@/lib/kv";
-import { exchangeCode, tokensToCredentials } from "@/lib/mcpClient";
-import { readCredentials, packCredentials } from "@/lib/mcpCredentials";
+import { userInTeam } from "@/lib/server/access";
+import { kvTake } from "@/lib/server/kv";
+import { exchangeCode, tokensToCredentials } from "@/lib/server/mcpClient";
+import { readCredentials, packCredentials } from "@/lib/server/mcpCredentials";
 import { OAUTH_STATE_NS } from "@/app/[teamSlug]/mcp-connections/constants";
-
-function appUrl(): string {
-  return (process.env.APP_URL ?? "http://localhost:3069").replace(/\/$/, "");
-}
+import { appUrl } from "@/lib/server/serverEnv";
 
 function back(teamSlug: string, connectionId: string, params: Record<string, string>) {
   const u = new URL(`${appUrl()}/${teamSlug}/mcp-connections/${connectionId}`);

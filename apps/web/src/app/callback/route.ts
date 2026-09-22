@@ -6,10 +6,7 @@ import { kvTake } from "@/lib/server/kv";
 import { exchangeCode, tokensToCredentials } from "@/lib/server/mcpClient";
 import { readCredentials, packCredentials } from "@/lib/server/mcpCredentials";
 import { OAUTH_STATE_NS } from "@/app/[teamSlug]/mcp-connections/constants";
-
-function appUrl(): string {
-  return (process.env.APP_URL ?? "http://localhost:3069").replace(/\/$/, "");
-}
+import { appUrl } from "@/lib/server/serverEnv";
 
 function back(teamSlug: string, connectionId: string, params: Record<string, string>) {
   const u = new URL(`${appUrl()}/${teamSlug}/mcp-connections/${connectionId}`);

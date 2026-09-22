@@ -1,7 +1,9 @@
 // Fetches a live OAuth access token from Nango. Nango refreshes the token
 // server-side on every GET, so we never store or rotate it ourselves.
 
-const NANGO_HOST = process.env.NANGO_HOST || "https://api.nango.dev";
+import { serverEnv } from "@/lib/server/serverEnv";
+
+const NANGO_HOST = serverEnv.NANGO_HOST || "https://api.nango.dev";
 
 // Pointer stored in Credential.credentialRef for a NANGO credential.
 export type NangoRef = {
@@ -37,7 +39,7 @@ export type NangoConnectionInfo = {
 // Returns null if Nango has no such connection; throws NangoError on config or
 // transport errors.
 export async function getNangoConnectionInfo(connectionId: string): Promise<NangoConnectionInfo | null> {
-  const secretKey = process.env.NANGO_SECRET_KEY;
+  const secretKey = serverEnv.NANGO_SECRET_KEY;
   if (!secretKey) throw new NangoError("NANGO_SECRET_KEY is not set");
 
   const url = `${NANGO_HOST}/connection?connectionId=${encodeURIComponent(connectionId)}`;
@@ -73,7 +75,7 @@ export function isQuickbooksProvider(provider: string | null | undefined): boole
 // Returns a currently-valid access token. Throws NangoError with a readable
 // message on misconfiguration or when the connection needs re-authorization.
 export async function fetchNangoToken(ref: NangoRef): Promise<NangoToken> {
-  const secretKey = process.env.NANGO_SECRET_KEY;
+  const secretKey = serverEnv.NANGO_SECRET_KEY;
   if (!secretKey) throw new NangoError("NANGO_SECRET_KEY is not set");
 
   const url = `${NANGO_HOST}/connection/${encodeURIComponent(ref.connectionId)}?provider_config_key=${encodeURIComponent(ref.providerConfigKey)}`;

@@ -2,10 +2,11 @@ import NextAuth, { type Session } from "next-auth";
 import Google from "next-auth/providers/google";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/server/db";
+import { serverEnv } from "@/lib/server/serverEnv";
 
 // Restrict sign-in to these Google Workspace domains (comma-separated). Empty =
 // any Google account.
-const ALLOWED_DOMAINS = (process.env.AUTH_ALLOWED_DOMAINS ?? "")
+const ALLOWED_DOMAINS = (serverEnv.AUTH_ALLOWED_DOMAINS ?? "")
   .split(",")
   .map((s) => s.trim().toLowerCase())
   .filter(Boolean);
@@ -45,7 +46,7 @@ const {
 // as that user — no login. The user (looked up by email) must already exist.
 // NEVER set this in production.
 async function auth(): Promise<Session | null> {
-  const email = process.env.__USAFE_PERMANENT_LOGIN?.trim();
+  const email = serverEnv.__USAFE_PERMANENT_LOGIN?.trim();
   if (email) {
     const user = await prisma.user.findUnique({ where: { email } });
     if (user) {

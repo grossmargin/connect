@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "crypto";
+import { serverEnv } from "@/lib/server/serverEnv";
 
 // ---------- Auth ----------
 //
@@ -7,7 +8,7 @@ import { createHmac, timingSafeEqual } from "crypto";
 // Keys are global — a valid key authenticates for any team.
 
 function intakeSalt(): string {
-  return process.env.CLAUDE_OTLP_INTAKE_SALT ?? process.env.AUTH_SECRET ?? "";
+  return serverEnv.CLAUDE_OTLP_INTAKE_SALT ?? serverEnv.AUTH_SECRET ?? "";
 }
 
 export function hashIntakeKey(raw: string): string {
@@ -23,7 +24,7 @@ export function extractKey(req: Request): string | null {
 
 export function verifyIntakeKey(raw: string): boolean {
   if (!intakeSalt()) return false; // misconfigured: refuse rather than accept all
-  const allowed = (process.env.CLAUDE_OTLP_INTAKE_KEYS ?? "")
+  const allowed = (serverEnv.CLAUDE_OTLP_INTAKE_KEYS ?? "")
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);

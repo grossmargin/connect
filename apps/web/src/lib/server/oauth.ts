@@ -1,4 +1,5 @@
 import { createHash } from "crypto";
+import { serverEnv } from "@/lib/server/serverEnv";
 
 export const OAUTH_SCOPE = "credentials:read";
 export const ACCESS_TTL_SEC = 60 * 60; // 1h
@@ -7,7 +8,7 @@ export const CODE_TTL_SEC = 60 * 5; // 5m
 
 // Origin of this deployment, used to build metadata + endpoint URLs.
 export function baseUrl(req: Request): string {
-  if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, "");
+  if (serverEnv.APP_URL) return serverEnv.APP_URL.replace(/\/$/, "");
   const url = new URL(req.url);
   return `${url.protocol}//${url.host}`;
 }

@@ -11,6 +11,7 @@ import type { AuthorizationServerMetadata, OAuthTokens } from "@modelcontextprot
 import type { Tool, CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { McpConnection } from "@prisma/client";
 import type { DcrCredentials, McpCredentials } from "@/lib/server/mcpCredentials";
+import { appUrl } from "@/lib/server/serverEnv";
 
 // HTTP headers attached to every request to an upstream server. For DCR this is
 // just an OAuth bearer; for HEADERS it's the user-supplied header map.
@@ -27,9 +28,8 @@ const timeoutFetch: typeof fetch = (input, init) => {
 };
 
 export function callbackUrl(): string {
-  const base = (process.env.APP_URL ?? "http://localhost:3069").replace(/\/$/, "");
   // Conventional loopback path many MCP servers (e.g. Ramp) auto-trust.
-  return `${base}/callback`;
+  return `${appUrl()}/callback`;
 }
 
 async function discover(url: string) {

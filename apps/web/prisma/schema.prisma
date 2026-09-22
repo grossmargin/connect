@@ -93,12 +93,19 @@ model McpScope {
   // Letters, digits and underscore only, unique per team.
   slug      String
   isDefault Boolean  @default(false)
+  // Which of the team's vaults this bundle exposes via the credential tools.
+  //   ALL  - every team vault, minus the ones in `vaults` (exceptions).
+  //   LIST - only the vaults in `vaults`.
+  vaultMode String   @default("ALL")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   team     Team            @relation(fields: [teamId], references: [id], onDelete: Cascade)
   // Individual member MCPs (tools prefixed with the connection slug).
   connections McpConnection[] @relation("McpScopeConnections")
+  // Vault selection. Meaning depends on `vaultMode`: exceptions when ALL,
+  // the allow-list when LIST.
+  vaults   Vault[]         @relation("McpScopeVaults")
   // Tenanted groups (tools prefixed with the group slug + a `tenant` argument).
   groups   McpGroup[]
   // DEPRECATED: federated toolsets. Frozen — kept for data migration, no longer read.
@@ -173,6 +180,8 @@ model Vault {
 
   team        Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
   credentials Credential[]
+  // Bundles that select this vault (as an allow-list entry or an exception).
+  scopes      McpScope[]   @relation("McpScopeVaults")
 
   @@index([teamId])
 }

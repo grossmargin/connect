@@ -83,7 +83,7 @@ export function PublishedList({ scopes }: { scopes: ScopeRow[] }) {
             <span className="inline-block w-8" />
           ) : (
             <Popconfirm
-              title="Delete this published MCP?"
+              title="Delete this bundle?"
               okText="Delete"
               okButtonProps={{ danger: true }}
               onConfirm={() => remove(s)}
@@ -99,17 +99,17 @@ export function PublishedList({ scopes }: { scopes: ScopeRow[] }) {
   ];
 
   return (
-    <Page breadcrumb={[{ title: "Published MCPs" }]}>
+    <Page breadcrumb={[{ title: "Bundled MCPs" }]}>
       <PageIntro
-        title="Published MCPs"
-        description="Each Published MCP is an endpoint that exposes its member MCPs. The default one is served at your team root; named ones at /team/<id>."
+        title="Bundled MCPs"
+        description="Each bundle is an endpoint that exposes its member MCPs and a selection of vaults. The default one is served at your team root; named ones at /team/<id>."
         action={
           <Button
             type="primary"
             icon={<PlusOutlined />}
             onClick={() => router.push(`/${teamSlug}/published/new`)}
           >
-            New published MCP
+            New bundle
           </Button>
         }
       />
@@ -120,7 +120,7 @@ export function PublishedList({ scopes }: { scopes: ScopeRow[] }) {
         dataSource={scopes}
         pagination={false}
         onRow={(s) => ({ onClick: () => router.push(editHref(s)), className: "group cursor-pointer align-top" })}
-        locale={{ emptyText: "No published MCPs" }}
+        locale={{ emptyText: "No bundled MCPs" }}
       />
     </Page>
   );

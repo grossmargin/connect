@@ -30,6 +30,20 @@ const { workerData } = require("node:worker_threads");
 })();
 `;
 
+// Build-time trace hint — NEVER executed at runtime. The worker imports a local
+// MCP package by its resolved path from inside an eval'd worker, which Next's
+// output-file tracer cannot see, so its dependency closure would be missing from
+// the serverless bundle. A guarded dynamic import with a string literal lets the
+// tracer statically discover each allowlisted package AND recursively trace its
+// dependencies. The guard is never true, so nothing here runs or is imported at
+// runtime. Add one line per allowlisted package in localMcpPackages.ts.
+async function __traceLocalMcpPackagesForBundling(): Promise<void> {
+  const NEVER = (globalThis as { __traceLocalMcp__?: boolean }).__traceLocalMcp__ === true;
+  if (!NEVER) return;
+  await import("helius-mcp");
+}
+void __traceLocalMcpPackagesForBundling;
+
 // Environment inherited by the worker in addition to the connection's own env.
 // The stdio server needs PATH (some resolve helper binaries); everything else is
 // withheld so a local server can't read our secrets out of process.env.

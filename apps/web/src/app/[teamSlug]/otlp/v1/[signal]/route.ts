@@ -23,7 +23,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ teamSlug: stri
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  // The path segment (caller-controlled) is a team id or slug: require a real Team.
+  // The path segment (caller-controlled) is the team slug: require a real Team.
   const team = await getTeamBySlug(teamSlug);
   if (!team) return notFound();
   const teamId = team.id;

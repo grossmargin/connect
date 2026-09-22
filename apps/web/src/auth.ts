@@ -42,11 +42,11 @@ const {
   pages: { signIn: "/login" },
 });
 
-// DEBUG BYPASS. When __USAFE_PERMANENT_LOGIN is set, every request is authorized
+// DEBUG BYPASS. When __UNSAFE_PERMANENT_LOGIN is set, every request is authorized
 // as that user — no login. The user (looked up by email) must already exist.
 // NEVER set this in production.
 async function auth(): Promise<Session | null> {
-  const email = serverEnv.__USAFE_PERMANENT_LOGIN?.trim();
+  const email = serverEnv.__UNSAFE_PERMANENT_LOGIN?.trim();
   if (email) {
     const user = await prisma.user.findUnique({ where: { email } });
     if (user) {

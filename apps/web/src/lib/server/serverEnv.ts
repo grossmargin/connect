@@ -23,7 +23,7 @@ const schema = z.object({
   NANGO_HOST: z.string().optional(),
   CLAUDE_OTLP_INTAKE_KEYS: z.string().optional(),
   CLAUDE_OTLP_INTAKE_SALT: z.string().optional(),
-  __USAFE_PERMANENT_LOGIN: z.string().optional(),
+  __UNSAFE_PERMANENT_LOGIN: z.string().optional(),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 });
 

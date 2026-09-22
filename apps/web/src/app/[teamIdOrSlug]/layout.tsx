@@ -9,10 +9,10 @@ export default async function TeamLayout({
   params,
   children,
 }: {
-  params: Promise<{ teamSlug: string }>;
+  params: Promise<{ teamIdOrSlug: string }>;
   children: React.ReactNode;
 }) {
-  const { teamSlug } = await params;
+  const { teamIdOrSlug: teamSlug } = await params;
   const team = await getTeamBySlug(teamSlug);
   if (!team) notFound();
   const user = await requireUser();

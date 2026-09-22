@@ -5,7 +5,7 @@ import { userInTeam } from "@/lib/server/access";
 import { kvTake } from "@/lib/server/kv";
 import { exchangeCode, tokensToCredentials } from "@/lib/server/mcpClient";
 import { readCredentials, packCredentials } from "@/lib/server/mcpCredentials";
-import { OAUTH_STATE_NS } from "@/app/[teamSlug]/mcp-connections/constants";
+import { OAUTH_STATE_NS } from "@/app/[teamIdOrSlug]/mcp-connections/constants";
 import { appUrl } from "@/lib/server/serverEnv";
 
 function back(teamSlug: string, connectionId: string, params: Record<string, string>) {

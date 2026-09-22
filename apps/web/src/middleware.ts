@@ -1,9 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isReservedSlug, isTeamSubroute } from "@/lib/isomorphic/reservedSlugs";
 
-// `/<teamSlug>` is both a browser page (the team dashboard) and, for MCP
-// clients, the per-team MCP mount — so we route MCP requests on that bare path
-// to /mcp/<teamSlug>. Reserved top-level segments are never team slugs.
+// `/<team>` is both a browser page (the team dashboard) and, for MCP clients,
+// the per-team MCP mount — so we route MCP requests on that bare path to
+// /<team>/mcp. Reserved top-level segments are never team slugs.
 
 // An MCP client either GETs the SSE stream (Accept: text/event-stream) or
 // POST/DELETEs JSON-RPC. A browser navigation is GET text/html; a React Server
@@ -26,12 +26,12 @@ export function middleware(req: NextRequest) {
   // requests among them to the MCP handlers.
   let target: string | null = null;
   if (segments.length === 1) {
-    const [teamSlug] = segments;
-    if (!isReservedSlug(teamSlug) && isMcpRequest(req)) target = `/mcp/${teamSlug}`;
+    const [team] = segments;
+    if (!isReservedSlug(team) && isMcpRequest(req)) target = `/${team}/mcp`;
   } else if (segments.length === 2) {
-    const [teamSlug, scopeSlug] = segments;
-    if (!isReservedSlug(teamSlug) && !isTeamSubroute(scopeSlug) && isMcpRequest(req)) {
-      target = `/mcp/${teamSlug}/${scopeSlug}`;
+    const [team, scopeSlug] = segments;
+    if (!isReservedSlug(team) && !isTeamSubroute(scopeSlug) && isMcpRequest(req)) {
+      target = `/${team}/mcp/${scopeSlug}`;
     }
   }
   if (!target) return NextResponse.next();

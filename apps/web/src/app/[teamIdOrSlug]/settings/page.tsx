@@ -2,8 +2,8 @@ import { prisma } from "@/lib/server/db";
 import { requireTeam } from "@/lib/server/team";
 import { SettingsView, type MemberRow, type ServiceAccountRow } from "./SettingsView";
 
-export default async function TeamSettingsPage({ params }: { params: Promise<{ teamSlug: string }> }) {
-  const { teamSlug } = await params;
+export default async function TeamSettingsPage({ params }: { params: Promise<{ teamIdOrSlug: string }> }) {
+  const { teamIdOrSlug: teamSlug } = await params;
   const team = await requireTeam(teamSlug);
 
   const [memberships, serviceAccounts] = await Promise.all([

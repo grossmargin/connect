@@ -2,8 +2,8 @@ import { prisma } from "@/lib/server/db";
 import { requireTeam } from "@/lib/server/team";
 import { ConnectionsTable, type ConnectionRow } from "./ConnectionsTable";
 
-export default async function McpConnectionsPage({ params }: { params: Promise<{ teamSlug: string }> }) {
-  const { teamSlug } = await params;
+export default async function McpConnectionsPage({ params }: { params: Promise<{ teamIdOrSlug: string }> }) {
+  const { teamIdOrSlug: teamSlug } = await params;
   const team = await requireTeam(teamSlug);
 
   const rows = await prisma.mcpConnection.findMany({

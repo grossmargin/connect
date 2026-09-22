@@ -6,8 +6,8 @@ import { serveTeamMcp } from "@/lib/server/mcpMount";
 // rewrites MCP requests there to /mcp/[teamSlug]/[scopeSlug]. Serves only the
 // toolsets published in that scope; the caller's bearer must grant access to the
 // team (enforced in serveTeamMcp).
-async function handle(req: Request, ctx: { params: Promise<{ teamSlug: string; scopeSlug: string }> }) {
-  const { teamSlug, scopeSlug } = await ctx.params;
+async function handle(req: Request, ctx: { params: Promise<{ teamIdOrSlug: string; scopeSlug: string }> }) {
+  const { teamIdOrSlug: teamSlug, scopeSlug } = await ctx.params;
   const team = await getTeamBySlug(teamSlug);
   if (!team) return NextResponse.json({ error: "not found" }, { status: 404 });
   return serveTeamMcp(req, team.id, scopeSlug);

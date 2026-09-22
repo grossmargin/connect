@@ -8,9 +8,9 @@ import type { ConnectionStatus } from "../status";
 export default async function ConnectionDetailPage({
   params,
 }: {
-  params: Promise<{ teamSlug: string; connectionId: string }>;
+  params: Promise<{ teamIdOrSlug: string; connectionId: string }>;
 }) {
-  const { teamSlug, connectionId } = await params;
+  const { teamIdOrSlug: teamSlug, connectionId } = await params;
   if (!isUuid(connectionId)) notFound();
   const team = await requireTeam(teamSlug);
 

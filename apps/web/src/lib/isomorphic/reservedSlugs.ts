@@ -28,10 +28,10 @@ export function isReservedSlug(slug: string): boolean {
 export const TEAM_SUBROUTES = new Set([
   "vaults",
   "mcp-connections",
-  "mcp-toolsets",
-  "mcp-composed",
   "published",
   "settings",
+  "mcp",
+  "otlp",
 ]);
 
 export function isTeamSubroute(slug: string): boolean {

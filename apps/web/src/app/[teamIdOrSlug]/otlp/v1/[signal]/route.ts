@@ -2,19 +2,19 @@ import { gunzipSync } from "zlib";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/server/db";
 import { extractKey, flattenSignal, verifyIntakeKey } from "@/lib/server/otlp";
+import { getTeamBySlug } from "@/lib/server/team";
 
 export const dynamic = "force-dynamic";
 
 // OTLP/HTTP JSON intake for Claude Code / Cowork telemetry.
-// The native OTel exporter posts to `${APP_URL}/otlp/<teamId>/v1/{traces|metrics|logs}`.
+// The native OTel exporter posts to `${APP_URL}/<teamIdOrSlug>/otlp/v1/{traces|metrics|logs}`.
 // Spans and log records are stored (one row per leaf); metrics are acknowledged
 // but discarded. Any valid intake key authenticates for any team.
 
 const SIGNALS = new Set(["traces", "metrics", "logs"]);
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export async function POST(req: Request, ctx: { params: Promise<{ teamId: string; signal: string }> }) {
-  const { teamId, signal } = await ctx.params;
+export async function POST(req: Request, ctx: { params: Promise<{ teamIdOrSlug: string; signal: string }> }) {
+  const { teamIdOrSlug, signal } = await ctx.params;
 
   if (!SIGNALS.has(signal)) return notFound();
 
@@ -23,10 +23,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ teamId: string
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  // teamId comes from the path (caller-controlled): require a real Team.
-  if (!UUID_RE.test(teamId)) return notFound();
-  const team = await prisma.team.findUnique({ where: { id: teamId }, select: { id: true } });
+  // The path segment (caller-controlled) is a team id or slug: require a real Team.
+  const team = await getTeamBySlug(teamIdOrSlug);
   if (!team) return notFound();
+  const teamId = team.id;
 
   let payload: unknown;
   try {

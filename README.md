@@ -5,7 +5,7 @@ Claude Cowork.
 
 - **Provider connectors are single-account.** If you manage several companies in one provider (for
   example Deel, Gusto, Ramp), you can connect only one, and Claude cannot mount two instances of the same MCP. This
-  blocks agencies that manage many client accounts. **Published MCPs** with **groups** (see below) solve it.
+  blocks agencies that manage many client accounts. **Bundled MCPs** with **groups** (see below) solve it.
 - **Stock MCP connectors expose less than the API behind them.** For example, the Google Drive connector
   cannot edit cell values in a Sheet, but the Google Sheets API can. The fix is to hand the agent the
   raw credentials, safely. This part is a "missing 1Password MCP": you store a credential once, and
@@ -15,15 +15,18 @@ Built with Next.js, Prisma, and Postgres.
 
 ![Vaults](docs/screenshots/vaults.png)
 
-## Published MCPs
+## Bundled MCPs
 
-A **Published MCP** is an MCP endpoint that exposes a set of members. A member is one of:
+A **bundle** (Bundled MCP) is an MCP endpoint that exposes a set of members. A member is one of:
 
 - an **individual MCP** — one connection, whose tools are served under its own `<id>__` prefix; or
 - a **group** — several connections of the same provider, served under one `<id>__` prefix. Each
   connection is a **tenant**, and the agent picks one per call with a required `tenant` argument.
 
-The default Published MCP is served at your team root (`/<team>`); named ones at `/<team>/<id>`.
+A bundle also chooses which **vaults** its credential tools expose: all team vaults (minus optional
+exceptions), or an explicit allow-list. See [Vaults and Credentials](#vaults-and-credentials).
+
+The default bundle is served at your team root (`/<team>`); named ones at `/<team>/<id>`.
 
 Set one up in two steps:
 
@@ -32,12 +35,12 @@ Set one up in two steps:
 
    ![MCP Connections](docs/screenshots/connections.png)
 
-2. Create a Published MCP and add members: individual MCPs, and groups for the providers where you have
+2. Create a bundle and add members: individual MCPs, and groups for the providers where you have
    several accounts.
 
-   ![Published MCPs](docs/screenshots/published-mcps.png)
+   ![Bundled MCPs](docs/screenshots/published-mcps.png)
 
-   ![Editing a Published MCP](docs/screenshots/published-mcp-edit.png)
+   ![Editing a bundle](docs/screenshots/published-mcp-edit.png)
 
 For a group, the agent calls `<id>__tenants` to list the accounts, then passes one `tenant` id on each
 tool call. An individual MCP is called directly — no `tenant` argument.
@@ -59,6 +62,9 @@ Agents reach vaults through the root MCP server at `/mcp`, with three tools:
 - `get_credentials(vaultId?)` — credential metadata (never the content).
 - `view_credential(credentialId)` — the decrypted content, or a live Nango token. Every reveal is
   written to the audit log.
+
+Each [bundle](#bundled-mcps) chooses which vaults these tools expose, so a named endpoint can serve a
+subset of the team's vaults.
 
 ## Deployment
 

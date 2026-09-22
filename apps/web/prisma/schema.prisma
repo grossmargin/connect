@@ -20,6 +20,23 @@ model User {
   accounts    Account[]
   sessions    Session[]
   memberships TeamMembership[]
+  settings    UserSettings[]
+}
+
+// Generic per-user settings, one row per (user, key). `settings` shape is
+// decided by the caller. Used for preferences like the default team.
+model UserSettings {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  key       String
+  settings  Json     @db.JsonB
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
+  @@index([userId])
 }
 
 model Account {
@@ -69,6 +86,7 @@ model Team {
   createdAt DateTime @default(now())
 
   memberships     TeamMembership[]
+  invitations     TeamInvitation[]
   vaults          Vault[]
   serviceAccounts ServiceAccount[]
   mcpConnections  McpConnection[]
@@ -77,6 +95,25 @@ model Team {
   mcpScopes       McpScope[]
   mcpGroups       McpGroup[]
   kvEntries       KeyValueStore[]
+}
+
+// An invitation to join a team. `code` is the secret in the invite link; email
+// is informational only (the invitee may sign in with any email). Single-use:
+// `acceptedAt` is set when someone joins via the link. No email is sent.
+model TeamInvitation {
+  id           String    @id @default(uuid()) @db.Uuid
+  teamId       String    @db.Uuid
+  email        String
+  code         String    @unique
+  role         String    @default("ADMIN")
+  createdById  String?   @db.Uuid
+  acceptedById String?   @db.Uuid
+  acceptedAt   DateTime?
+  createdAt    DateTime  @default(now())
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([teamId])
 }
 
 // A "published MCP": a named subset of the team's toolsets (Federated MCPs)

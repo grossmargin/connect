@@ -1,12 +1,24 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { prisma } from "@/lib/server/db";
 import { requireUser } from "@/lib/server/session";
 import { userInTeam } from "@/lib/server/access";
 import { slugify } from "@/lib/isomorphic/slug";
 import { isReservedSlug } from "@/lib/isomorphic/reservedSlugs";
-import { generateServiceAccountKey } from "@/lib/server/tokens";
+import { appUrl } from "@/lib/server/serverEnv";
+import { generateServiceAccountKey, generateOpaqueToken } from "@/lib/server/tokens";
+
+// The invite link for a code, built from the actual request host (so it points
+// at wherever the app is served), falling back to APP_URL.
+async function inviteUrl(code: string): Promise<string> {
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host");
+  const proto = h.get("x-forwarded-proto") ?? "https";
+  const origin = host ? `${proto}://${host}` : appUrl();
+  return `${origin}/invite/${code}`;
+}
 
 // Change a team's slug (its public id and per-team MCP mount). Returns the
 // normalized slug on success so the client can navigate to the new URL.
@@ -30,6 +42,69 @@ export async function updateTeamSlug(
   await prisma.team.update({ where: { id: teamId }, data: { slug } });
   revalidatePath(`/${slug}/settings`);
   return { slug };
+}
+
+// ---------- Invitations ----------
+//
+// An invite is a single-use link carrying a secret `code`. The email is
+// informational only — the invitee may sign in with any address. No email is
+// sent; the admin shares the link. Codes are stored plaintext so the link can
+// be shown again later.
+
+export async function inviteMember(
+  teamId: string,
+  rawEmail: string,
+): Promise<{ error: string } | { url: string }> {
+  const user = await requireUser();
+  if (!(await userInTeam(user.id, teamId))) return { error: "not found" };
+
+  const email = rawEmail.trim().toLowerCase();
+  if (!email || !email.includes("@")) return { error: "Enter a valid email." };
+
+  const invite = await prisma.teamInvitation.create({
+    data: { teamId, email, code: generateOpaqueToken("inv"), createdById: user.id },
+    select: { code: true },
+  });
+  const slug = await teamSlug(teamId);
+  if (slug) revalidatePath(`/${slug}/settings`);
+  return { url: await inviteUrl(invite.code) };
+}
+
+// Reveal an existing invitation's link on demand (the code is not sent to the
+// client with the page).
+export async function getInvitationLink(
+  teamId: string,
+  invitationId: string,
+): Promise<{ error: string } | { url: string }> {
+  const user = await requireUser();
+  if (!(await userInTeam(user.id, teamId))) return { error: "not found" };
+
+  const invite = await prisma.teamInvitation.findUnique({
+    where: { id: invitationId },
+    select: { teamId: true, code: true },
+  });
+  if (!invite || invite.teamId !== teamId) return { error: "not found" };
+
+  return { url: await inviteUrl(invite.code) };
+}
+
+export async function revokeInvitation(
+  teamId: string,
+  invitationId: string,
+): Promise<{ error: string } | { ok: true }> {
+  const user = await requireUser();
+  if (!(await userInTeam(user.id, teamId))) return { error: "not found" };
+
+  const invite = await prisma.teamInvitation.findUnique({
+    where: { id: invitationId },
+    select: { teamId: true },
+  });
+  if (!invite || invite.teamId !== teamId) return { error: "not found" };
+
+  await prisma.teamInvitation.delete({ where: { id: invitationId } });
+  const slug = await teamSlug(teamId);
+  if (slug) revalidatePath(`/${slug}/settings`);
+  return { ok: true };
 }
 
 // ---------- Service accounts ----------

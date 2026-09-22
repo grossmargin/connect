@@ -1,12 +1,17 @@
 import { prisma } from "@/lib/server/db";
 import { requireTeam } from "@/lib/server/team";
-import { SettingsView, type MemberRow, type ServiceAccountRow } from "./SettingsView";
+import {
+  SettingsView,
+  type MemberRow,
+  type ServiceAccountRow,
+  type InvitationRow,
+} from "./SettingsView";
 
 export default async function TeamSettingsPage({ params }: { params: Promise<{ teamSlug: string }> }) {
   const { teamSlug } = await params;
   const team = await requireTeam(teamSlug);
 
-  const [memberships, serviceAccounts] = await Promise.all([
+  const [memberships, serviceAccounts, invitations] = await Promise.all([
     prisma.teamMembership.findMany({
       where: { teamId: team.id },
       orderBy: { createdAt: "asc" },
@@ -18,6 +23,10 @@ export default async function TeamSettingsPage({ params }: { params: Promise<{ t
       include: {
         keys: { where: { revokedAt: null }, select: { id: true } },
       },
+    }),
+    prisma.teamInvitation.findMany({
+      where: { teamId: team.id },
+      orderBy: { createdAt: "desc" },
     }),
   ]);
 
@@ -36,11 +45,19 @@ export default async function TeamSettingsPage({ params }: { params: Promise<{ t
     createdAt: sa.createdAt.toISOString(),
   }));
 
+  const invites: InvitationRow[] = invitations.map((i) => ({
+    id: i.id,
+    email: i.email,
+    acceptedAt: i.acceptedAt?.toISOString() ?? null,
+    createdAt: i.createdAt.toISOString(),
+  }));
+
   return (
     <SettingsView
       teamName={team.name}
       slug={team.slug}
       members={members}
+      invitations={invites}
       serviceAccounts={accounts}
     />
   );

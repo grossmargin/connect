@@ -2,7 +2,7 @@ import { gunzipSync } from "zlib";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/server/db";
 import { extractKey, flattenSignal, verifyIntakeKey } from "@/lib/server/otlp";
-import { getTeamBySlug } from "@/lib/server/team";
+import { getTeamByIdOrSlug } from "@/lib/server/team";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +24,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ teamIdOrSlug: 
   }
 
   // The path segment (caller-controlled) is a team id or slug: require a real Team.
-  const team = await getTeamBySlug(teamIdOrSlug);
+  const team = await getTeamByIdOrSlug(teamIdOrSlug);
   if (!team) return notFound();
   const teamId = team.id;
 

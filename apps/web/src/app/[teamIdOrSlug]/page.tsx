@@ -1,11 +1,11 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/server/db";
-import { getTeamBySlug } from "@/lib/server/team";
+import { getTeamByIdOrSlug } from "@/lib/server/team";
 import { VaultsGrid } from "./VaultsGrid";
 
 export default async function TeamHomePage({ params }: { params: Promise<{ teamIdOrSlug: string }> }) {
   const { teamIdOrSlug: teamSlug } = await params;
-  const team = await getTeamBySlug(teamSlug);
+  const team = await getTeamByIdOrSlug(teamSlug);
   if (!team) notFound();
 
   const rows = await prisma.vault.findMany({

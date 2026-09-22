@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getTeamBySlug } from "@/lib/server/team";
+import { getTeamByIdOrSlug } from "@/lib/server/team";
 import { serveTeamMcp } from "@/lib/server/mcpMount";
 
 // Per-team MCP mount. Publicly reached at /<teamSlug> — middleware rewrites the
@@ -7,7 +7,7 @@ import { serveTeamMcp } from "@/lib/server/mcpMount";
 // caller's bearer must grant access to this team, which serveTeamMcp enforces.
 async function handle(req: Request, ctx: { params: Promise<{ teamIdOrSlug: string }> }) {
   const { teamIdOrSlug: teamSlug } = await ctx.params;
-  const team = await getTeamBySlug(teamSlug);
+  const team = await getTeamByIdOrSlug(teamSlug);
   if (!team) return NextResponse.json({ error: "not found" }, { status: 404 });
   return serveTeamMcp(req, team.id);
 }

@@ -2,8 +2,33 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { baseUrl } from "@/lib/oauth";
-import { resolvePrincipal } from "@/lib/mcp";
+import { resolvePrincipal, type Principal } from "@/lib/mcp";
+import { logMcpCall } from "@/lib/mcpLog";
 import { serveTeamMcp, serveUnauthenticatedMcp } from "@/lib/mcpMount";
+
+// Log a tools/call we reject before the MCP handler runs (e.g. team ambiguous),
+// so auth/routing failures aren't invisible. Best-effort; reads the JSON-RPC
+// body from a clone so the original request is untouched. Needs a principal to
+// attribute the actor — anonymous (401) calls can't be logged.
+async function logRejectedCall(req: Request, principal: Principal, error: string) {
+  try {
+    const body = await req.clone().json();
+    if (body?.method !== "tools/call") return;
+    const name = body?.params?.name;
+    if (typeof name !== "string") return;
+    const args = body?.params?.arguments;
+    await logMcpCall(principal, {
+      source: "root",
+      toolName: name,
+      args,
+      tenant: typeof args?.tenant === "string" ? args.tenant : null,
+      ok: false,
+      error,
+    });
+  } catch {
+    // ignore — logging must never break the response
+  }
+}
 
 // The root serves the MCP server for MCP clients and redirects browsers.
 // MCP clients send `Accept: text/event-stream` (GET SSE stream) or POST
@@ -28,6 +53,7 @@ async function serveMcp(req: Request) {
       principal.teamIds.length === 0
         ? "You are not a member of any team."
         : "You belong to multiple teams. Connect to a team explicitly at /<teamSlug>.";
+    await logRejectedCall(req, principal, msg);
     return NextResponse.json({ error: "team_ambiguous", message: msg }, { status: 409 });
   }
 

@@ -1,5 +1,5 @@
-import { prisma } from "@/lib/db";
-import type { ActorType, AuditAction, AuditSource } from "@/lib/dbEnums";
+import { prisma } from "@/lib/server/db";
+import type { ActorType, AuditAction, AuditSource } from "@/lib/isomorphic/dbEnums";
 
 type AuditInput = {
   actorType: ActorType;

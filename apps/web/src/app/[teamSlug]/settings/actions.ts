@@ -1,12 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/db";
-import { requireUser } from "@/lib/session";
-import { userInTeam } from "@/lib/access";
-import { slugify } from "@/lib/slug";
-import { isReservedSlug } from "@/lib/reservedSlugs";
-import { generateServiceAccountKey } from "@/lib/tokens";
+import { prisma } from "@/lib/server/db";
+import { requireUser } from "@/lib/server/session";
+import { userInTeam } from "@/lib/server/access";
+import { slugify } from "@/lib/isomorphic/slug";
+import { isReservedSlug } from "@/lib/isomorphic/reservedSlugs";
+import { generateServiceAccountKey } from "@/lib/server/tokens";
 
 // Change a team's slug (its public id and per-team MCP mount). Returns the
 // normalized slug on success so the client can navigate to the new URL.

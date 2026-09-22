@@ -1,7 +1,7 @@
 import NextAuth, { type Session } from "next-auth";
 import Google from "next-auth/providers/google";
 import { PrismaAdapter } from "@auth/prisma-adapter";
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/server/db";
 
 // Restrict sign-in to these Google Workspace domains (comma-separated). Empty =
 // any Google account.

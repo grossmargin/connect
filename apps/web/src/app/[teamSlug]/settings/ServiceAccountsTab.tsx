@@ -16,7 +16,7 @@ import {
 } from "./actions";
 import { CopyId } from "../../CopyId";
 import { useCurrentTeam } from "../../TeamContext";
-import { timeAgo } from "@/lib/timeAgo";
+import { timeAgo } from "@/lib/isomorphic/timeAgo";
 
 export type ServiceAccountRow = {
   id: string;

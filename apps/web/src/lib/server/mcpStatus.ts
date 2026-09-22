@@ -1,8 +1,8 @@
 import "server-only";
-import { prisma } from "@/lib/db";
-import { probeServer } from "@/lib/mcpClient";
-import { memberHeaders } from "@/lib/mcpToolShared";
-import type { Principal } from "@/lib/mcp";
+import { prisma } from "@/lib/server/db";
+import { probeServer } from "@/lib/server/mcpClient";
+import { memberHeaders } from "@/lib/server/mcpToolShared";
+import type { Principal } from "@/lib/server/mcp";
 
 export type ConnectionHealth = {
   status: "ok" | "error";

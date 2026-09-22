@@ -1,6 +1,6 @@
-import { prisma } from "@/lib/db";
-import { hashToken, generateOpaqueToken } from "@/lib/tokens";
-import { ACCESS_TTL_SEC, REFRESH_TTL_SEC, verifyPkce } from "@/lib/oauth";
+import { prisma } from "@/lib/server/db";
+import { hashToken, generateOpaqueToken } from "@/lib/server/tokens";
+import { ACCESS_TTL_SEC, REFRESH_TTL_SEC, verifyPkce } from "@/lib/server/oauth";
 
 export const dynamic = "force-dynamic";
 

@@ -1,6 +1,6 @@
 import "server-only";
 import { z } from "zod";
-import { encrypt, decrypt } from "@/lib/crypto";
+import { encrypt, decrypt } from "@/lib/server/crypto";
 
 // Auth types this app can use to reach an MCP server. The McpConnection.authType
 // column is a plain string; these are its allowed values. Add a new member here

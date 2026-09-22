@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
-import { buildMcpHandler } from "@/lib/mcpServer";
-import { renderRootInstructions } from "@/lib/mcpInstructions";
-import { resolveScope } from "@/lib/scopes";
+import { prisma } from "@/lib/server/db";
+import { buildMcpHandler } from "@/lib/server/mcpServer";
+import { renderRootInstructions } from "@/lib/isomorphic/mcpInstructions";
+import { resolveScope } from "@/lib/server/scopes";
 
 // Serve one team's Published MCP. With no `scopeSlug` this is the team's default
 // Published MCP (served at / and /[teamSlug]); with a slug it is the named one at

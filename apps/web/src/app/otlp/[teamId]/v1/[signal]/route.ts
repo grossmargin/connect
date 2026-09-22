@@ -1,7 +1,7 @@
 import { gunzipSync } from "zlib";
 import { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/db";
-import { extractKey, flattenSignal, verifyIntakeKey } from "@/lib/otlp";
+import { prisma } from "@/lib/server/db";
+import { extractKey, flattenSignal, verifyIntakeKey } from "@/lib/server/otlp";
 
 export const dynamic = "force-dynamic";
 

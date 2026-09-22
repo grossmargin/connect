@@ -1,8 +1,8 @@
 import "server-only";
 import type { Tool, CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { McpConnection, McpGroup } from "@prisma/client";
-import { fetchToolDefs, callUpstreamTool } from "@/lib/mcpClient";
-import { text, errorResult, memberHeaders } from "@/lib/mcpToolShared";
+import { fetchToolDefs, callUpstreamTool } from "@/lib/server/mcpClient";
+import { text, errorResult, memberHeaders } from "@/lib/server/mcpToolShared";
 
 // A Published MCP exposes two kinds of member:
 //   - individual connection: its tools are published under "<conn.slug>__",

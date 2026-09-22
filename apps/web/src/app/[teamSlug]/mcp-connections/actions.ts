@@ -4,13 +4,13 @@ import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/db";
-import { requireUser } from "@/lib/session";
-import { userInTeam } from "@/lib/access";
-import { isUuid } from "@/lib/ids";
-import { audit } from "@/lib/audit";
-import { kvSet } from "@/lib/kv";
-import { packCredentials, readCredentials, parseHeaderText } from "@/lib/mcpCredentials";
+import { prisma } from "@/lib/server/db";
+import { requireUser } from "@/lib/server/session";
+import { userInTeam } from "@/lib/server/access";
+import { isUuid } from "@/lib/isomorphic/ids";
+import { audit } from "@/lib/server/audit";
+import { kvSet } from "@/lib/server/kv";
+import { packCredentials, readCredentials, parseHeaderText } from "@/lib/server/mcpCredentials";
 import {
   assertDcrSupported,
   registerConnection,
@@ -19,8 +19,8 @@ import {
   resolveAuthHeaders,
   probeServer,
   type ToolInfo,
-} from "@/lib/mcpClient";
-import { slugify } from "@/lib/slug";
+} from "@/lib/server/mcpClient";
+import { slugify } from "@/lib/isomorphic/slug";
 import { OAUTH_STATE_NS, OAUTH_STATE_TTL_SECONDS } from "./constants";
 
 function errorMessage(e: unknown): string {

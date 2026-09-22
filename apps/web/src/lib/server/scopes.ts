@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/server/db";
 
 // A Published MCP with the members it exposes: individual connections plus
 // tenanted groups (and each group's tenant connections).

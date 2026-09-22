@@ -1,10 +1,10 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/server/db";
 import { auth } from "@/auth";
-import { generateOpaqueToken } from "@/lib/tokens";
-import { CODE_TTL_SEC } from "@/lib/oauth";
+import { generateOpaqueToken } from "@/lib/server/tokens";
+import { CODE_TTL_SEC } from "@/lib/server/oauth";
 
 export type AuthzParams = {
   clientId: string;

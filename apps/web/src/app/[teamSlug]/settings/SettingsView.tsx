@@ -10,7 +10,7 @@ import { ServiceAccountsTab, type ServiceAccountRow } from "./ServiceAccountsTab
 import { CopyId } from "../../CopyId";
 import { Page, PageIntro } from "../../Page";
 import { useCurrentTeam } from "../../TeamContext";
-import { timeAgo } from "@/lib/timeAgo";
+import { timeAgo } from "@/lib/isomorphic/timeAgo";
 
 export type { ServiceAccountRow };
 

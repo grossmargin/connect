@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { Card, Result } from "antd";
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/server/db";
 import { auth } from "@/auth";
-import { OAUTH_SCOPE } from "@/lib/oauth";
+import { OAUTH_SCOPE } from "@/lib/server/oauth";
 import { ConsentForm } from "./ConsentForm";
 
 type SP = Record<string, string | string[] | undefined>;

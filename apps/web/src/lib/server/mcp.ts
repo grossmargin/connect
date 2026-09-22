@@ -1,8 +1,8 @@
-import { prisma } from "@/lib/db";
-import { hashToken } from "@/lib/tokens";
-import { decryptContent } from "@/lib/crypto";
-import { audit } from "@/lib/audit";
-import { fetchNangoToken, parseNangoRef } from "@/lib/nango";
+import { prisma } from "@/lib/server/db";
+import { hashToken } from "@/lib/server/tokens";
+import { decryptContent } from "@/lib/server/crypto";
+import { audit } from "@/lib/server/audit";
+import { fetchNangoToken, parseNangoRef } from "@/lib/server/nango";
 
 // A resolved MCP caller. SA is scoped to one team; a user to all their teams.
 export type Principal =

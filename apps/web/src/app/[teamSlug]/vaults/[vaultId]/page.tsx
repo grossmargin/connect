@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/db";
-import { isUuid } from "@/lib/ids";
-import { requireTeam } from "@/lib/team";
-import type { CredentialType } from "@/lib/dbEnums";
+import { prisma } from "@/lib/server/db";
+import { isUuid } from "@/lib/isomorphic/ids";
+import { requireTeam } from "@/lib/server/team";
+import type { CredentialType } from "@/lib/isomorphic/dbEnums";
 import { VaultView } from "./VaultView";
 
 export default async function VaultPage({

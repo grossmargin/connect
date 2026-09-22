@@ -1,5 +1,5 @@
 import "server-only";
-import { probeUrl, type ToolInfo, type AuthHeaders } from "@/lib/mcpClient";
+import { probeUrl, type ToolInfo, type AuthHeaders } from "@/lib/server/mcpClient";
 
 // One upstream MCP in an aggregate. `label` is used in error messages.
 export type AggregateMember = { label: string; url: string; headers: AuthHeaders };

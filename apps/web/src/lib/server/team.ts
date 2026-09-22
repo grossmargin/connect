@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/db";
-import { isUuid } from "@/lib/ids";
-import { requireUser } from "@/lib/session";
-import { userInTeam } from "@/lib/access";
+import { prisma } from "@/lib/server/db";
+import { isUuid } from "@/lib/isomorphic/ids";
+import { requireUser } from "@/lib/server/session";
+import { userInTeam } from "@/lib/server/access";
 
 // Resolved team, as pages and MCP mounts need it: the uuid for DB queries and
 // the slug for URLs.

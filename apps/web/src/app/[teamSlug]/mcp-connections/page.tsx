@@ -1,5 +1,5 @@
-import { prisma } from "@/lib/db";
-import { requireTeam } from "@/lib/team";
+import { prisma } from "@/lib/server/db";
+import { requireTeam } from "@/lib/server/team";
 import { ConnectionsTable, type ConnectionRow } from "./ConnectionsTable";
 
 export default async function McpConnectionsPage({ params }: { params: Promise<{ teamSlug: string }> }) {

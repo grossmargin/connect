@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/server/db";
 
 // Team-level access: a user sees everything in teams they belong to.
 

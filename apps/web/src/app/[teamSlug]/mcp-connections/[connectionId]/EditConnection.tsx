@@ -22,7 +22,7 @@ import { DetailHeader } from "../../../DetailHeader";
 import { Page } from "../../../Page";
 import { StatusPill } from "../../../StatusPill";
 import { useCurrentTeam } from "../../../TeamContext";
-import { timeAgo } from "@/lib/timeAgo";
+import { timeAgo } from "@/lib/isomorphic/timeAgo";
 
 type ToolInfo = { name: string; description?: string };
 type Usage = { scopeId: string; label: string };

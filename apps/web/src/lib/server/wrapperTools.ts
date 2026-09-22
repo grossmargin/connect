@@ -1,9 +1,9 @@
 import "server-only";
 import type { Tool, CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { Credential, McpWrapper } from "@prisma/client";
-import { QuickbooksMcp, type QuickbooksRealm } from "@/lib/quickbooks/QuickbooksMcp";
-import { fetchNangoToken, parseNangoRef } from "@/lib/nango";
-import { decryptContent } from "@/lib/crypto";
+import { QuickbooksMcp, type QuickbooksRealm } from "@/lib/server/quickbooks/QuickbooksMcp";
+import { fetchNangoToken, parseNangoRef } from "@/lib/server/nango";
+import { decryptContent } from "@/lib/server/crypto";
 
 export type WrapperWithCredentials = McpWrapper & { credentials: Credential[] };
 

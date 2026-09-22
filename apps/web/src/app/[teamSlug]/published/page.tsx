@@ -1,6 +1,6 @@
-import { prisma } from "@/lib/db";
-import { requireTeam } from "@/lib/team";
-import { getOrCreateDefaultScope } from "@/lib/scopes";
+import { prisma } from "@/lib/server/db";
+import { requireTeam } from "@/lib/server/team";
+import { getOrCreateDefaultScope } from "@/lib/server/scopes";
 import { PublishedList, type ScopeRow } from "./PublishedList";
 
 export default async function PublishedMcpsPage({ params }: { params: Promise<{ teamSlug: string }> }) {

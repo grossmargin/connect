@@ -1,6 +1,6 @@
 import "server-only";
 import type { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/server/db";
 
 // Generic, untyped key/value store for cache and transient state. Values are
 // whatever the caller puts in; nothing here validates their shape.

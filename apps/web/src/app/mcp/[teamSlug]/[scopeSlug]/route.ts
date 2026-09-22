@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getTeamBySlug } from "@/lib/team";
-import { serveTeamMcp } from "@/lib/mcpMount";
+import { getTeamBySlug } from "@/lib/server/team";
+import { serveTeamMcp } from "@/lib/server/mcpMount";
 
 // Per-scope MCP mount. Publicly reached at /[teamSlug]/[scopeSlug] — middleware
 // rewrites MCP requests there to /mcp/[teamSlug]/[scopeSlug]. Serves only the

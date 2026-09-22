@@ -10,7 +10,7 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import type { AuthorizationServerMetadata, OAuthTokens } from "@modelcontextprotocol/sdk/shared/auth.js";
 import type { Tool, CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { McpConnection } from "@prisma/client";
-import type { DcrCredentials, McpCredentials } from "@/lib/mcpCredentials";
+import type { DcrCredentials, McpCredentials } from "@/lib/server/mcpCredentials";
 
 // HTTP headers attached to every request to an upstream server. For DCR this is
 // just an OAuth bearer; for HEADERS it's the user-supplied header map.

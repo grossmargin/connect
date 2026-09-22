@@ -1,7 +1,7 @@
 import "server-only";
 import type { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/db";
-import { principalActor, type Principal } from "@/lib/mcp";
+import { prisma } from "@/lib/server/db";
+import { principalActor, type Principal } from "@/lib/server/mcp";
 
 export type McpCallEntry = {
   source: "root" | "group" | "connection" | "wrapper";

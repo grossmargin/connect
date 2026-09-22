@@ -1,4 +1,4 @@
-import { baseUrl, OAUTH_SCOPE } from "@/lib/oauth";
+import { baseUrl, OAUTH_SCOPE } from "@/lib/server/oauth";
 
 export const dynamic = "force-dynamic";
 

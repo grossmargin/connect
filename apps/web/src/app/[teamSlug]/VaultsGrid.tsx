@@ -7,7 +7,7 @@ import { useState, useTransition } from "react";
 import { createVault } from "../actions";
 import { Page, PageIntro } from "../Page";
 import { useCurrentTeam } from "../TeamContext";
-import { timeAgo } from "@/lib/timeAgo";
+import { timeAgo } from "@/lib/isomorphic/timeAgo";
 
 type Vault = {
   id: string;

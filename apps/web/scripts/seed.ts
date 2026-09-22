@@ -1,6 +1,6 @@
-import { prisma } from "../src/lib/db";
-import { encryptContent } from "../src/lib/crypto";
-import { generateServiceAccountKey } from "../src/lib/tokens";
+import { prisma } from "../src/lib/server/db";
+import { encryptContent } from "../src/lib/server/crypto";
+import { generateServiceAccountKey } from "../src/lib/server/tokens";
 
 async function main() {
   const team = await prisma.team.create({ data: { name: "Acme", slug: "acme" } });

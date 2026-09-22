@@ -1,6 +1,6 @@
-import { prisma } from "@/lib/db";
-import { generateOpaqueToken } from "@/lib/tokens";
-import { OAUTH_SCOPE } from "@/lib/oauth";
+import { prisma } from "@/lib/server/db";
+import { generateOpaqueToken } from "@/lib/server/tokens";
+import { OAUTH_SCOPE } from "@/lib/server/oauth";
 
 export const dynamic = "force-dynamic";
 

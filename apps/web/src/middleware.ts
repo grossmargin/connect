@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { isReservedSlug, isTeamSubroute } from "@/lib/reservedSlugs";
+import { isReservedSlug, isTeamSubroute } from "@/lib/isomorphic/reservedSlugs";
 
 // `/<teamSlug>` is both a browser page (the team dashboard) and, for MCP
 // clients, the per-team MCP mount — so we route MCP requests on that bare path

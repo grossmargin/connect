@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/db";
-import { requireTeam } from "@/lib/team";
+import { prisma } from "@/lib/server/db";
+import { requireTeam } from "@/lib/server/team";
 import { EditPublished, type ConnOption, type GroupData } from "./EditPublished";
 
 export default async function EditPublishedMcpPage({

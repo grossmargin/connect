@@ -2,8 +2,8 @@
 // Creates a team "Acme" with the permanent-login user as member, then fake
 // connections and a Published MCP with individual members and groups.
 // Tear down with: bun run scripts/seed-demo.ts --drop
-import { prisma } from "../src/lib/db";
-import { encryptContent } from "../src/lib/crypto";
+import { prisma } from "../src/lib/server/db";
+import { encryptContent } from "../src/lib/server/crypto";
 
 const EMAIL = process.env.__USAFE_PERMANENT_LOGIN ?? "vladimir@grossmargin.io";
 const SLUG = "acme";

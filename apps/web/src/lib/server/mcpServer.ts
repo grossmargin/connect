@@ -6,10 +6,10 @@ import {
   type Tool,
   type CallToolResult,
 } from "@modelcontextprotocol/sdk/types.js";
-import { resolvePrincipal, getVaults, getCredentials, viewCredential, type Principal } from "@/lib/mcp";
-import { connectionStatusReport } from "@/lib/mcpStatus";
-import { logMcpCall } from "@/lib/mcpLog";
-import { text, errorResult, resultText, headerValue } from "@/lib/mcpToolShared";
+import { resolvePrincipal, getVaults, getCredentials, viewCredential, type Principal } from "@/lib/server/mcp";
+import { connectionStatusReport } from "@/lib/server/mcpStatus";
+import { logMcpCall } from "@/lib/server/mcpLog";
+import { text, errorResult, resultText, headerValue } from "@/lib/server/mcpToolShared";
 import {
   connOwns,
   connToolDefs,
@@ -18,14 +18,14 @@ import {
   groupToolDefs,
   handleGroupCall,
   type GroupWithTenants,
-} from "@/lib/publishedTools";
+} from "@/lib/server/publishedTools";
 import type { McpConnection } from "@prisma/client";
 import {
   wrapperOwns,
   wrapperToolDefs,
   handleWrapperCall,
   type WrapperWithCredentials,
-} from "@/lib/wrapperTools";
+} from "@/lib/server/wrapperTools";
 
 function principalFrom(extra: { authInfo?: AuthInfo }): Principal {
   const p = extra.authInfo?.extra?.principal as Principal | undefined;

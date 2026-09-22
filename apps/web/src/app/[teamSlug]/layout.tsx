@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/db";
-import { requireUser } from "@/lib/session";
-import { userInTeam } from "@/lib/access";
-import { getTeamBySlug } from "@/lib/team";
+import { prisma } from "@/lib/server/db";
+import { requireUser } from "@/lib/server/session";
+import { userInTeam } from "@/lib/server/access";
+import { getTeamBySlug } from "@/lib/server/team";
 import { AppShell } from "../AppShell";
 
 export default async function TeamLayout({

@@ -12,8 +12,8 @@ import { CopyId } from "../../CopyId";
 import { Page, PageIntro } from "../../Page";
 import { StatusPill } from "../../StatusPill";
 import { useCurrentTeam } from "../../TeamContext";
-import { timeAgo } from "@/lib/timeAgo";
-import { KNOWN_MCP_SERVERS } from "@/lib/knownMcpServers";
+import { timeAgo } from "@/lib/isomorphic/timeAgo";
+import { KNOWN_MCP_SERVERS } from "@/lib/isomorphic/knownMcpServers";
 
 export type ConnectionRow = {
   id: string;

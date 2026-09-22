@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/db";
-import { requireUser } from "@/lib/session";
-import { userCanAccessVault } from "@/lib/access";
+import { prisma } from "@/lib/server/db";
+import { requireUser } from "@/lib/server/session";
+import { userCanAccessVault } from "@/lib/server/access";
 
 // Disconnect a QuickBooks connection by deleting the credential that references
 // it. The app can no longer use the connection afterwards. Scoped to the signed-

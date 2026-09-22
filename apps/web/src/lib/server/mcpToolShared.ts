@@ -1,9 +1,9 @@
 import "server-only";
 import type { McpConnection } from "@prisma/client";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { prisma } from "@/lib/db";
-import { readCredentials, packCredentials } from "@/lib/mcpCredentials";
-import { resolveAuthHeaders, type AuthHeaders } from "@/lib/mcpClient";
+import { prisma } from "@/lib/server/db";
+import { readCredentials, packCredentials } from "@/lib/server/mcpCredentials";
+import { resolveAuthHeaders, type AuthHeaders } from "@/lib/server/mcpClient";
 
 export function text(s: string): CallToolResult {
   return { content: [{ type: "text", text: s }] };

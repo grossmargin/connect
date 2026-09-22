@@ -12,6 +12,7 @@ import type { Tool, CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { McpConnection } from "@prisma/client";
 import type { DcrCredentials, McpCredentials } from "@/lib/server/mcpCredentials";
 import { appUrl } from "@/lib/server/serverEnv";
+import { http } from "@/lib/server/http";
 
 // HTTP headers attached to every request to an upstream server. For DCR this is
 // just an OAuth bearer; for HEADERS it's the user-supplied header map.
@@ -61,20 +62,20 @@ export async function registerConnection(url: string, name: string): Promise<Dcr
   const endpoint = d.metadata?.registration_endpoint;
   if (!endpoint) throw new Error("Server does not advertise a Dynamic Client Registration endpoint.");
 
-  const res = await timeoutFetch(endpoint, {
-    method: "POST",
-    headers: { "content-type": "application/json", accept: "application/json" },
-    body: JSON.stringify({
+  const res = await http.post(
+    endpoint,
+    {
       client_name: `Grossmargin Connect: ${name}`,
       redirect_uris: [callbackUrl()],
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
       token_endpoint_auth_method: "none",
       ...(d.scope ? { scope: d.scope } : {}),
-    }),
-  });
-  const body = await res.json().catch(() => null);
-  if (!res.ok || !body?.client_id) {
+    },
+    { headers: { accept: "application/json" } },
+  );
+  const body = res.data as Record<string, string> | null;
+  if (res.status < 200 || res.status >= 300 || !body?.client_id) {
     const detail = body?.error_description ?? body?.error ?? `HTTP ${res.status}`;
     throw new Error(`Dynamic Client Registration failed: ${detail}`);
   }
@@ -96,8 +97,7 @@ export async function registerConnection(url: string, name: string): Promise<Dcr
 export async function deregisterConnection(creds: DcrCredentials): Promise<void> {
   if (!creds.registrationClientUri || !creds.registrationAccessToken) return;
   try {
-    await timeoutFetch(creds.registrationClientUri, {
-      method: "DELETE",
+    await http.delete(creds.registrationClientUri, {
       headers: { authorization: `Bearer ${creds.registrationAccessToken}` },
     });
   } catch {

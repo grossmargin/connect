@@ -2,6 +2,7 @@
 // server-side on every GET, so we never store or rotate it ourselves.
 
 import { serverEnv } from "@/lib/server/serverEnv";
+import { http } from "@/lib/server/http";
 
 const NANGO_HOST = serverEnv.NANGO_HOST || "https://api.nango.dev";
 
@@ -43,18 +44,17 @@ export async function getNangoConnectionInfo(connectionId: string): Promise<Nang
   if (!secretKey) throw new NangoError("NANGO_SECRET_KEY is not set");
 
   const url = `${NANGO_HOST}/connection?connectionId=${encodeURIComponent(connectionId)}`;
-  let res: Response;
+  let res;
   try {
-    res = await fetch(url, { headers: { Authorization: `Bearer ${secretKey}` } });
+    res = await http.get(url, { headers: { Authorization: `Bearer ${secretKey}` } });
   } catch (e) {
     throw new NangoError(`Nango request failed: ${(e as Error).message}`);
   }
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new NangoError(`Nango returned HTTP ${res.status}. ${body}`);
+  if (res.status < 200 || res.status >= 300) {
+    throw new NangoError(`Nango returned HTTP ${res.status}. ${typeof res.data === "string" ? res.data : ""}`);
   }
 
-  const data = (await res.json()) as {
+  const data = res.data as {
     connections?: Array<{ connection_id?: string; provider?: string; provider_config_key?: string }>;
   };
   const list = data.connections ?? [];
@@ -79,15 +79,15 @@ export async function fetchNangoToken(ref: NangoRef): Promise<NangoToken> {
   if (!secretKey) throw new NangoError("NANGO_SECRET_KEY is not set");
 
   const url = `${NANGO_HOST}/connection/${encodeURIComponent(ref.connectionId)}?provider_config_key=${encodeURIComponent(ref.providerConfigKey)}`;
-  let res: Response;
+  let res;
   try {
-    res = await fetch(url, { headers: { Authorization: `Bearer ${secretKey}` } });
+    res = await http.get(url, { headers: { Authorization: `Bearer ${secretKey}` } });
   } catch (e) {
     throw new NangoError(`Nango request failed: ${(e as Error).message}`);
   }
 
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
+  if (res.status < 200 || res.status >= 300) {
+    const body = typeof res.data === "string" ? res.data : JSON.stringify(res.data ?? "");
     if (res.status === 400 || res.status === 404) {
       throw new NangoError(
         `Nango connection "${ref.connectionId}" (${ref.providerConfigKey}) is unavailable — it may need re-authorization. HTTP ${res.status}. ${body}`,
@@ -96,7 +96,7 @@ export async function fetchNangoToken(ref: NangoRef): Promise<NangoToken> {
     throw new NangoError(`Nango returned HTTP ${res.status}. ${body}`);
   }
 
-  const data = (await res.json()) as {
+  const data = res.data as {
     credentials?: { access_token?: string; expires_at?: string };
     connection_config?: { realmId?: string };
   };

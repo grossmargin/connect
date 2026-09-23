@@ -1,6 +1,12 @@
 import "server-only";
 import type { McpConnection } from "@prisma/client";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type {
+  CallToolResult,
+  Resource,
+  ReadResourceResult,
+  Prompt,
+  GetPromptResult,
+} from "@modelcontextprotocol/sdk/types.js";
 import { readCredentials } from "@/lib/server/mcpCredentials";
 import { memberHeaders } from "@/lib/server/mcpToolShared";
 import type { ToolInfo } from "@/lib/server/mcpClient";
@@ -38,6 +44,26 @@ export async function callConnTool(
   args: Record<string, unknown>,
 ): Promise<CallToolResult> {
   return (await openUpstream(conn)).callTool(name, args);
+}
+
+export async function listConnResources(conn: McpConnection): Promise<Resource[]> {
+  return (await openUpstream(conn)).listResources();
+}
+
+export async function readConnResource(conn: McpConnection, uri: string): Promise<ReadResourceResult> {
+  return (await openUpstream(conn)).readResource(uri);
+}
+
+export async function listConnPrompts(conn: McpConnection): Promise<Prompt[]> {
+  return (await openUpstream(conn)).listPrompts();
+}
+
+export async function getConnPrompt(
+  conn: McpConnection,
+  name: string,
+  args: Record<string, string>,
+): Promise<GetPromptResult> {
+  return (await openUpstream(conn)).getPrompt(name, args);
 }
 
 // Lightweight probe (names + descriptions + instructions), used by Test and the

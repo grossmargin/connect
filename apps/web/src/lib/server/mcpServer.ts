@@ -3,6 +3,11 @@ import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import {
   ListToolsRequestSchema,
   CallToolRequestSchema,
+  ListResourcesRequestSchema,
+  ListResourceTemplatesRequestSchema,
+  ReadResourceRequestSchema,
+  ListPromptsRequestSchema,
+  GetPromptRequestSchema,
   type Tool,
   type CallToolResult,
 } from "@modelcontextprotocol/sdk/types.js";
@@ -26,6 +31,12 @@ import {
   handleGroupCall,
   type GroupWithTenants,
 } from "@/lib/server/publishedTools";
+import {
+  listAllResources,
+  handleResourceRead,
+  listAllPrompts,
+  handlePromptGet,
+} from "@/lib/server/publishedResourcesPrompts";
 import type { McpConnection } from "@prisma/client";
 import {
   wrapperOwns,
@@ -352,8 +363,78 @@ export function buildMcpHandler(
 
         return errorResult(`Unknown tool "${name}".`);
       });
+
+      // Resources and prompts, proxied from the endpoint's members. Read/get are
+      // logged; the two list handlers are hot and left unlogged.
+      server.setRequestHandler(ListResourcesRequestSchema, async () => ({
+        resources: await listAllResources(connections, groups),
+      }));
+      server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => ({
+        resourceTemplates: [],
+      }));
+      server.setRequestHandler(ReadResourceRequestSchema, async (req, extra) => {
+        const uri = req.params.uri;
+        const principal = principalFrom(extra);
+        const started = Date.now();
+        try {
+          const result = await handleResourceRead(connections, groups, uri);
+          await logMcpCall(principal, {
+            source: "root",
+            teamId,
+            toolName: "resources/read",
+            args: { uri },
+            ok: true,
+            durationMs: Date.now() - started,
+          });
+          return result;
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : "read failed";
+          await logMcpCall(principal, {
+            source: "root",
+            teamId,
+            toolName: "resources/read",
+            args: { uri },
+            ok: false,
+            error: msg,
+            durationMs: Date.now() - started,
+          });
+          throw e;
+        }
+      });
+
+      server.setRequestHandler(ListPromptsRequestSchema, async () => ({
+        prompts: await listAllPrompts(connections, groups),
+      }));
+      server.setRequestHandler(GetPromptRequestSchema, async (req, extra) => {
+        const pname = req.params.name;
+        const args = (req.params.arguments ?? {}) as Record<string, string>;
+        const principal = principalFrom(extra);
+        const started = Date.now();
+        try {
+          const result = await handlePromptGet(connections, groups, pname, args);
+          await logMcpCall(principal, {
+            source: "root",
+            teamId,
+            toolName: `prompts/get:${pname}`,
+            ok: true,
+            durationMs: Date.now() - started,
+          });
+          return result;
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : "get failed";
+          await logMcpCall(principal, {
+            source: "root",
+            teamId,
+            toolName: `prompts/get:${pname}`,
+            ok: false,
+            error: msg,
+            durationMs: Date.now() - started,
+          });
+          throw e;
+        }
+      });
     },
-    { capabilities: { tools: {} }, instructions },
+    { capabilities: { tools: {}, resources: {}, prompts: {} }, instructions },
     { streamableHttpEndpoint: endpoint },
   );
 

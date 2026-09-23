@@ -1,6 +1,20 @@
 import "server-only";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { fetchToolDefs, callUpstreamTool, type AuthHeaders } from "@/lib/server/mcpClient";
+import type {
+  CallToolResult,
+  Resource,
+  ReadResourceResult,
+  Prompt,
+  GetPromptResult,
+} from "@modelcontextprotocol/sdk/types.js";
+import {
+  fetchToolDefs,
+  callUpstreamTool,
+  fetchResources,
+  readUpstreamResource,
+  fetchPrompts,
+  getUpstreamPrompt,
+  type AuthHeaders,
+} from "@/lib/server/mcpClient";
 import type { UpstreamMcpServer, ToolListing } from "./types";
 
 // A remote MCP server reached over Streamable HTTP. Auth is a resolved set of
@@ -20,5 +34,21 @@ export class RemoteMcpServer implements UpstreamMcpServer {
 
   callTool(name: string, args: Record<string, unknown>): Promise<CallToolResult> {
     return callUpstreamTool(this.url, this.headers, name, args);
+  }
+
+  listResources(): Promise<Resource[]> {
+    return fetchResources(this.url, this.headers);
+  }
+
+  readResource(uri: string): Promise<ReadResourceResult> {
+    return readUpstreamResource(this.url, this.headers, uri);
+  }
+
+  listPrompts(): Promise<Prompt[]> {
+    return fetchPrompts(this.url, this.headers);
+  }
+
+  getPrompt(name: string, args: Record<string, string>): Promise<GetPromptResult> {
+    return getUpstreamPrompt(this.url, this.headers, name, args);
   }
 }

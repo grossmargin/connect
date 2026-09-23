@@ -1,5 +1,12 @@
 import "server-only";
-import type { Tool, CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type {
+  Tool,
+  CallToolResult,
+  Resource,
+  ReadResourceResult,
+  Prompt,
+  GetPromptResult,
+} from "@modelcontextprotocol/sdk/types.js";
 
 export type ToolListing = { tools: Tool[]; instructions?: string };
 
@@ -16,4 +23,8 @@ export interface UpstreamMcpServer {
   readonly label: string;
   listTools(): Promise<ToolListing>;
   callTool(name: string, args: Record<string, unknown>): Promise<CallToolResult>;
+  listResources(): Promise<Resource[]>;
+  readResource(uri: string): Promise<ReadResourceResult>;
+  listPrompts(): Promise<Prompt[]>;
+  getPrompt(name: string, args: Record<string, string>): Promise<GetPromptResult>;
 }

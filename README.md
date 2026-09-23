@@ -45,6 +45,10 @@ Set one up in two steps:
 For a group, the agent calls `<id>__tenants` to list the accounts, then passes one `tenant` id on each
 tool call. An individual MCP is called directly — no `tenant` argument.
 
+The proxy forwards tools, resources, and prompts. It does not support streaming, sessions, or several
+other MCP features, and it applies per-call timeouts. See [Proxying limitations](docs/limitations.md)
+for where a downstream server won't work fully.
+
 ## Vaults and Credentials
 
 A **Vault** is an encrypted store of credentials. Access is granted per vault, to a team.

@@ -1,6 +1,12 @@
 import "server-only";
 import { Worker } from "node:worker_threads";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type {
+  CallToolResult,
+  Resource,
+  ReadResourceResult,
+  Prompt,
+  GetPromptResult,
+} from "@modelcontextprotocol/sdk/types.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { isAllowedLocalMcpPackage } from "@/lib/isomorphic/localMcpPackages";
 import { StreamTransport } from "./streamTransport";
@@ -77,6 +83,22 @@ export class WorkerThreadMcpServer implements UpstreamMcpServer {
 
   callTool(name: string, args: Record<string, unknown>): Promise<CallToolResult> {
     return this.withClient((client) => client.callTool({ name, arguments: args })) as Promise<CallToolResult>;
+  }
+
+  listResources(): Promise<Resource[]> {
+    return this.withClient(async (client) => (await client.listResources()).resources);
+  }
+
+  readResource(uri: string): Promise<ReadResourceResult> {
+    return this.withClient((client) => client.readResource({ uri })) as Promise<ReadResourceResult>;
+  }
+
+  listPrompts(): Promise<Prompt[]> {
+    return this.withClient(async (client) => (await client.listPrompts()).prompts);
+  }
+
+  getPrompt(name: string, args: Record<string, string>): Promise<GetPromptResult> {
+    return this.withClient((client) => client.getPrompt({ name, arguments: args })) as Promise<GetPromptResult>;
   }
 
   // Spawns a worker hosting the package, connects a bridged client, runs `fn`,

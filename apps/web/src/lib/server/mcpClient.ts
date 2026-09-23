@@ -8,7 +8,14 @@ import {
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type { AuthorizationServerMetadata, OAuthTokens } from "@modelcontextprotocol/sdk/shared/auth.js";
-import type { Tool, CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type {
+  Tool,
+  CallToolResult,
+  Resource,
+  ReadResourceResult,
+  Prompt,
+  GetPromptResult,
+} from "@modelcontextprotocol/sdk/types.js";
 import type { McpConnection } from "@prisma/client";
 import type { DcrCredentials, McpCredentials } from "@/lib/server/mcpCredentials";
 import { appUrl } from "@/lib/server/serverEnv";
@@ -246,4 +253,29 @@ export function callUpstreamTool(
   args: Record<string, unknown>,
 ): Promise<CallToolResult> {
   return withClient(url, headers, (c) => c.callTool({ name, arguments: args })) as Promise<CallToolResult>;
+}
+
+export function fetchResources(url: string, headers: AuthHeaders): Promise<Resource[]> {
+  return withClient(url, headers, async (c) => (await c.listResources()).resources);
+}
+
+export function readUpstreamResource(
+  url: string,
+  headers: AuthHeaders,
+  uri: string,
+): Promise<ReadResourceResult> {
+  return withClient(url, headers, (c) => c.readResource({ uri })) as Promise<ReadResourceResult>;
+}
+
+export function fetchPrompts(url: string, headers: AuthHeaders): Promise<Prompt[]> {
+  return withClient(url, headers, async (c) => (await c.listPrompts()).prompts);
+}
+
+export function getUpstreamPrompt(
+  url: string,
+  headers: AuthHeaders,
+  name: string,
+  args: Record<string, string>,
+): Promise<GetPromptResult> {
+  return withClient(url, headers, (c) => c.getPrompt({ name, arguments: args })) as Promise<GetPromptResult>;
 }

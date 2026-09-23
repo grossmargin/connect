@@ -13,12 +13,17 @@ function one(v: string | string[] | undefined): string | undefined {
   return Array.isArray(v) ? v[0] : v;
 }
 
+// Prefer the actual request host so OAuth URLs match the domain the client used;
+// fall back to APP_URL.
 async function baseUrl(): Promise<string> {
-  if (serverEnv.APP_URL) return serverEnv.APP_URL.replace(/\/$/, "");
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host");
-  const proto = h.get("x-forwarded-proto") ?? "http";
-  return `${proto}://${host}`;
+  if (host) {
+    const proto = h.get("x-forwarded-proto") ?? (host.includes("localhost") ? "http" : "https");
+    return `${proto}://${host}`;
+  }
+  if (serverEnv.APP_URL) return serverEnv.APP_URL.replace(/\/$/, "");
+  throw new Error("Cannot determine base URL");
 }
 
 function errorCard(title: string, sub: string) {

@@ -62,10 +62,16 @@ export function renderRootInstructions(
     ? ["\nThe MCPs available to you:\n", ...members].join("\n\n")
     : "\n_No MCPs are published here yet._";
 
-  return `# Grossmargin Connect
+  // The credential tools are only exposed when this bundle has vaults, so
+  // describe them only then. Without vaults the intro and priority drop that path.
+  const hasVaults = vaults.length > 0;
 
-Grossmargin Connect gives you (the agent) access to external services. There are two ways to reach a service: credentials and MCP tools.
+  const intro = hasVaults
+    ? "Grossmargin Connect gives you (the agent) access to external services. There are two ways to reach a service: credentials and MCP tools."
+    : "Grossmargin Connect gives you (the agent) access to external services through MCP tools.";
 
+  const credentialsSection = hasVaults
+    ? `
 ## Credentials (API keys and similar)
 
 Call \`get_credentials\` to list the available credentials, then \`view_credential\` to read one. A credential can have different shapes — a single key or several — so use \`view_credential\` to see it. What you get back is ready to use as-is: nothing else is required, no refresh. Credentials are well scoped and safe to use to access the service.
@@ -81,12 +87,20 @@ You may have several ways to reach the same service. Prefer them in this order:
 1. MCP tools of **this** server
 2. Credentials from **this** server
 3. MCP tools of other servers
+`
+    : "";
 
+  const credentialsNote = hasVaults
+    ? "\n\n**IMPORTANT:** If a service offers both tools and an API key, try the tools first and fall back to the API key."
+    : "";
+
+  return `# Grossmargin Connect
+
+${intro}
+${credentialsSection}
 ## MCP tools
 
-Each published MCP contributes tools under its own \`<id>__\` prefix. An individual MCP is called directly; a **group** bundles several accounts (tenants) behind one prefix and needs a \`tenant\` argument to pick the account.
-
-**IMPORTANT:** If a service offers both tools and an API key, try the tools first and fall back to the API key.
+Each published MCP contributes tools under its own \`<id>__\` prefix. An individual MCP is called directly; a **group** bundles several accounts (tenants) behind one prefix and needs a \`tenant\` argument to pick the account.${credentialsNote}
 ${sections}${wrappersSection(wrappers)}
 `;
 }

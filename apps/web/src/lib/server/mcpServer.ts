@@ -168,6 +168,9 @@ export function buildMcpHandler(
 ) {
   const endpoint = opts.endpoint ?? "/";
   const vaultFilter = opts.vaultFilter;
+  // Only expose the credential tools when the bundle actually resolves to at
+  // least one vault (the team has vaults and the bundle's selection keeps some).
+  const hasVaults = (vaultFilter?.allowedVaultIds.length ?? 0) > 0;
   // The team this endpoint serves, autodetected from the route. Both the root
   // mount and /[teamSlug] resolve to a single team, so root-source calls
   // (status + credential tools) are attributed to it just like group/connection
@@ -183,7 +186,7 @@ export function buildMcpHandler(
         const perWrapper = wrappers.map((w) => wrapperToolDefs(w));
         return {
           tools: [
-            ...CREDENTIAL_TOOLS,
+            ...(hasVaults ? CREDENTIAL_TOOLS : []),
             STATUS_TOOL,
             ...perGroup.flat(),
             ...perConn.flat(),
@@ -226,7 +229,7 @@ export function buildMcpHandler(
           }
         }
 
-        if (CREDENTIAL_NAMES.has(name)) {
+        if (hasVaults && CREDENTIAL_NAMES.has(name)) {
           try {
             const result = await runCredentialTool(principal, name, args, headers, vaultFilter);
             await logMcpCall(principal, {

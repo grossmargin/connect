@@ -19,9 +19,10 @@ export default async function TeamLayout({
   if (!(await userInTeam(user.id, team.id))) notFound();
 
   const teamId = team.id;
-  const [connections, scopes, isAdmin, teams] = await Promise.all([
+  const [connections, scopes, bots, isAdmin, teams] = await Promise.all([
     prisma.mcpConnection.count({ where: { teamId } }),
     prisma.mcpScope.count({ where: { teamId } }),
+    prisma.bot.count({ where: { teamId } }),
     userIsTeamAdmin(user.id, teamId),
     userTeams(user.id),
   ]);
@@ -34,7 +35,7 @@ export default async function TeamLayout({
       teams={teams}
       userName={user.name}
       email={user.email}
-      counts={{ connections, scopes }}
+      counts={{ connections, scopes, bots }}
       isAdmin={isAdmin}
     >
       {children}

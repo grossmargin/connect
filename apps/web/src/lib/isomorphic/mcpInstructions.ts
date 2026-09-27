@@ -3,6 +3,23 @@ export type GroupSummary = { name: string; slug: string; tenants: TenantSummary[
 export type ConnSummary = { name: string; slug: string };
 export type VaultSummary = { name: string; description?: string | null };
 export type WrapperSummary = { name: string; slug: string; type: string };
+export type BotSummary = { name: string; platform: string; username?: string | null };
+
+function botsSection(bots: BotSummary[]): string {
+  if (!bots.length) return "";
+  const list = bots
+    .map((b) => `- **${b.name}** (${b.platform}${b.username ? `, @${b.username}` : ""})`)
+    .join("\n");
+  return `
+
+## Chat messages
+
+These bots save every message and attachment from the chats they are in (groups, channels and direct messages to the bot):
+
+${list}
+
+Call \`bots_list_chats\` to find a chat, then \`bots_get_messages\` to read it or \`bots_search_messages\` to find messages by text. \`bots_get_attachment\` returns a short-lived download URL for a file; download it to process large files. Bots only have messages from after they joined a chat.`;
+}
 
 function wrappersSection(wrappers: WrapperSummary[]): string {
   if (!wrappers.length) return "";
@@ -56,6 +73,7 @@ export function renderRootInstructions(
   connections: ConnSummary[] = [],
   vaults: VaultSummary[] = [],
   wrappers: WrapperSummary[] = [],
+  bots: BotSummary[] = [],
 ): string {
   const members = [...connections.map(connSection), ...groups.map(groupSection)];
   const sections = members.length
@@ -101,6 +119,6 @@ ${credentialsSection}
 ## MCP tools
 
 Each published MCP contributes tools under its own \`<id>__\` prefix. An individual MCP is called directly; a **group** bundles several accounts (tenants) behind one prefix and needs a \`tenant\` argument to pick the account.${credentialsNote}
-${sections}${wrappersSection(wrappers)}
+${sections}${wrappersSection(wrappers)}${botsSection(bots)}
 `;
 }

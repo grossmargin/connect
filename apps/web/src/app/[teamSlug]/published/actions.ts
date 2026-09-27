@@ -33,6 +33,16 @@ async function teamVaultIds(teamId: string, ids: string[]): Promise<string[]> {
   return rows.map((r) => r.id);
 }
 
+// Keep only bot ids that belong to this team.
+async function teamBotIds(teamId: string, ids: string[]): Promise<string[]> {
+  if (ids.length === 0) return [];
+  const rows = await prisma.bot.findMany({
+    where: { teamId, id: { in: ids } },
+    select: { id: true },
+  });
+  return rows.map((r) => r.id);
+}
+
 async function revalidate(teamId: string) {
   const t = await prisma.team.findUnique({ where: { id: teamId }, select: { slug: true } });
   if (t) revalidatePath(`/${t.slug}/published`);
@@ -201,6 +211,25 @@ export async function updateScopeVaults(
   await prisma.mcpScope.update({
     where: { id: scopeId },
     data: { vaultMode: mode, vaults: { set: ids.map((id) => ({ id })) } },
+  });
+  await revalidate(teamId);
+  return { ok: true };
+}
+
+// Set which bots' saved messages a bundle exposes through the bots_ tools.
+export async function updateScopeBots(
+  teamId: string,
+  scopeId: string,
+  botIds: string[],
+): Promise<{ error: string } | { ok: true }> {
+  if (!(await requireMember(teamId))) return { error: "not found" };
+  const scope = await prisma.mcpScope.findUnique({ where: { id: scopeId }, select: { teamId: true } });
+  if (!scope || scope.teamId !== teamId) return { error: "not found" };
+
+  const ids = await teamBotIds(teamId, botIds);
+  await prisma.mcpScope.update({
+    where: { id: scopeId },
+    data: { bots: { set: ids.map((id) => ({ id })) } },
   });
   await revalidate(teamId);
   return { ok: true };

@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/server/db";
 import { requireTeam } from "@/lib/server/team";
-import { EditPublished, type ConnOption, type GroupData, type VaultOption } from "./EditPublished";
+import { EditPublished, type BotOption, type ConnOption, type GroupData, type VaultOption } from "./EditPublished";
 
 export default async function EditPublishedMcpPage({
   params,
@@ -20,6 +20,7 @@ export default async function EditPublishedMcpPage({
         include: { tenants: { select: { id: true } } },
       },
       vaults: { select: { id: true } },
+      bots: { select: { id: true } },
     },
   });
   if (!scope || scope.teamId !== team.id) notFound();
@@ -34,6 +35,12 @@ export default async function EditPublishedMcpPage({
     where: { teamId: team.id },
     orderBy: { name: "asc" },
     select: { id: true, name: true },
+  });
+
+  const allBots = await prisma.bot.findMany({
+    where: { teamId: team.id },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, username: true },
   });
 
   const groups: GroupData[] = scope.groups.map((g) => ({
@@ -52,6 +59,8 @@ export default async function EditPublishedMcpPage({
       allVaults={allVaults as VaultOption[]}
       vaultMode={scope.vaultMode === "LIST" ? "LIST" : "ALL"}
       selectedVaultIds={scope.vaults.map((v) => v.id)}
+      allBots={allBots as BotOption[]}
+      selectedBotIds={scope.bots.map((b) => b.id)}
     />
   );
 }

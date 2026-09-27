@@ -10,6 +10,7 @@ import {
   FolderOutlined,
   LogoutOutlined,
   PlusOutlined,
+  RobotOutlined,
   SafetyCertificateOutlined,
   SettingOutlined,
   ShareAltOutlined,
@@ -58,7 +59,7 @@ export function AppShell({
   teams?: TeamOption[];
   userName?: string | null;
   email?: string | null;
-  counts: { connections: number; scopes: number };
+  counts: { connections: number; scopes: number; bots: number };
   isAdmin?: boolean;
   children: React.ReactNode;
 }) {
@@ -81,6 +82,11 @@ export function AppShell({
       key: `${base}/published`,
       icon: <ShareAltOutlined />,
       label: <Link href={`${base}/published`}>{navLabel("Bundled MCPs", counts.scopes)}</Link>,
+    },
+    {
+      key: `${base}/bots`,
+      icon: <RobotOutlined />,
+      label: <Link href={`${base}/bots`}>{navLabel("Bots", counts.bots)}</Link>,
     },
     {
       key: `${base}/settings`,
@@ -149,7 +155,7 @@ export function AppShell({
             <Menu
               mode="inline"
               theme="light"
-              selectedKeys={[vaultsActive ? base : pathname]}
+              selectedKeys={[vaultsActive ? base : pathname.startsWith(`${base}/bots`) ? `${base}/bots` : pathname]}
               items={items}
               className="flex-1 !border-r-0"
             />

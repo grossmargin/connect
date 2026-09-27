@@ -43,6 +43,7 @@ export async function serveTeamMcp(req: Request, teamId: string, scopeSlug?: str
     connections.map((c) => ({ name: c.name, slug: c.slug })),
     vaults,
     [],
+    scope.bots.map((b) => ({ name: b.name, platform: b.platform, username: b.username })),
   );
 
   const endpoint = new URL(req.url).pathname;
@@ -50,6 +51,7 @@ export async function serveTeamMcp(req: Request, teamId: string, scopeSlug?: str
     endpoint,
     teamScope: teamId,
     vaultFilter,
+    botIds: scope.bots.map((b) => b.id),
   })(req);
 }
 

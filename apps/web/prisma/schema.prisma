@@ -95,6 +95,7 @@ model Team {
   mcpScopes       McpScope[]
   mcpGroups       McpGroup[]
   kvEntries       KeyValueStore[]
+  bots            Bot[]
 }
 
 // An invitation to join a team. `code` is the secret in the invite link; email
@@ -147,6 +148,8 @@ model McpScope {
   groups   McpGroup[]
   // DEPRECATED: federated toolsets. Frozen — kept for data migration, no longer read.
   toolsets McpToolset[] @relation("McpScopeToolsets")
+  // Bots whose saved messages this bundle exposes through the bots_ tools.
+  bots     Bot[]        @relation("McpScopeBots")
 
   @@unique([teamId, slug])
   @@index([teamId])
@@ -515,4 +518,90 @@ model OtlpRecord {
 
   @@index([teamId, signalType, receivedAt])
   @@index([traceId])
+}
+
+// ---------- Bots ----------
+
+// A messaging bot that saves every message it receives. Telegram only for now:
+// updates arrive on a webhook at /api/bots/telegram/<id>.
+model Bot {
+  id                String    @id @default(uuid()) @db.Uuid
+  teamId            String    @db.Uuid
+  // telegram
+  platform          String    @default("telegram")
+  name              String
+  // Platform bot id and @username, from getMe.
+  externalId        String
+  username          String?
+  // Encrypted { value: <bot token> }.
+  encryptedToken    Bytes
+  // sha256 of the secret the platform echoes on each webhook call.
+  webhookSecretHash String?
+  lastError         String?
+  lastMessageAt     DateTime?
+  createdById       String?   @db.Uuid
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  team     Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  messages BotMessage[]
+  // Bundles that expose this bot.
+  scopes   McpScope[]   @relation("McpScopeBots")
+
+  // A bot has one webhook, so it can belong to one team only.
+  @@unique([platform, externalId])
+  @@index([teamId])
+}
+
+// One message seen by a bot. An edit updates the same row.
+model BotMessage {
+  id         String    @id @default(uuid()) @db.Uuid
+  teamId     String    @db.Uuid
+  botId      String    @db.Uuid
+  chatId     String
+  // private | group | supergroup | channel
+  chatType   String?
+  chatTitle  String?
+  messageId  String
+  senderId   String?
+  senderName String?
+  // Text or media caption.
+  text       String?
+  sentAt     DateTime
+  editedAt   DateTime?
+  // Platform message object, as last received.
+  raw        Json      @db.JsonB
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  bot         Bot             @relation(fields: [botId], references: [id], onDelete: Cascade)
+  attachments BotAttachment[]
+
+  @@unique([botId, chatId, messageId])
+  @@index([botId, chatId, sentAt])
+  @@index([teamId, sentAt])
+}
+
+// A file attached to a message. Bytes live in `content`; always `select` the
+// columns you need so lists don't load it.
+model BotAttachment {
+  id           String   @id @default(uuid()) @db.Uuid
+  messageId    String   @db.Uuid
+  // photo | document | video | audio | voice | animation | video_note | sticker
+  kind         String
+  // Platform file ids. `fileUniqueId` is stable across bots and re-sends.
+  fileId       String
+  fileUniqueId String
+  fileName     String?
+  mimeType     String?
+  size         Int?
+  sha256       String?
+  // Null when the download failed or the file is too large; see `error`.
+  content      Bytes?
+  error        String?
+  createdAt    DateTime @default(now())
+
+  message BotMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, fileUniqueId])
 }

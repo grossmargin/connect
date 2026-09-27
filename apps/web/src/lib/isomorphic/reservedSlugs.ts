@@ -32,6 +32,7 @@ export const TEAM_SUBROUTES = new Set([
   "mcp-connections",
   "published",
   "settings",
+  "bots",
   "mcp",
   "otlp",
 ]);

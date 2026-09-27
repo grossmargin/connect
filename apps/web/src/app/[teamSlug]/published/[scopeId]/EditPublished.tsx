@@ -8,12 +8,14 @@ import {
   EditOutlined,
   LockOutlined,
   PlusOutlined,
+  RobotOutlined,
 } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import {
   updateScope,
   updateScopeVaults,
+  updateScopeBots,
   deleteScope,
   addScopeConnections,
   removeScopeConnection,
@@ -28,6 +30,7 @@ import { useCurrentTeam } from "@/ui/components/TeamContext";
 
 export type ConnOption = { id: string; name: string; slug: string };
 export type VaultOption = { id: string; name: string };
+export type BotOption = { id: string; name: string; username: string | null };
 export type GroupData = { id: string; name: string; slug: string; tenantIds: string[] };
 type Scope = { id: string; name: string; slug: string; isDefault: boolean };
 type VaultMode = "ALL" | "LIST";
@@ -40,6 +43,8 @@ export function EditPublished({
   allVaults,
   vaultMode,
   selectedVaultIds,
+  allBots,
+  selectedBotIds,
 }: {
   scope: Scope;
   memberConnectionIds: string[];
@@ -48,6 +53,8 @@ export function EditPublished({
   allVaults: VaultOption[];
   vaultMode: VaultMode;
   selectedVaultIds: string[];
+  allBots: BotOption[];
+  selectedBotIds: string[];
 }) {
   const router = useRouter();
   const { teamId, teamSlug } = useCurrentTeam();
@@ -163,6 +170,8 @@ export function EditPublished({
             initialMode={vaultMode}
             initialSelected={selectedVaultIds}
           />
+
+          <BotsCard scopeId={scope.id} allBots={allBots} initialSelected={selectedBotIds} />
 
           <Card
             title="Individual MCPs"
@@ -548,6 +557,70 @@ export function EditPublished({
                   setIds(initialSelected);
                 }}
               >
+                Cancel
+              </Button>
+            </div>
+          </>
+        )}
+      </Card>
+    );
+  }
+  function BotsCard({
+    scopeId,
+    allBots,
+    initialSelected,
+  }: {
+    scopeId: string;
+    allBots: BotOption[];
+    initialSelected: string[];
+  }) {
+    const [ids, setIds] = useState<string[]>(initialSelected);
+    const [pending, start] = useTransition();
+
+    const dirty = ids.length !== initialSelected.length || ids.some((id) => !initialSelected.includes(id));
+
+    const save = () =>
+      start(async () => {
+        const r = await updateScopeBots(teamId, scopeId, ids);
+        if ("error" in r) {
+          message.error(r.error);
+          return;
+        }
+        message.success("Saved");
+        router.refresh();
+      });
+
+    return (
+      <Card title="Bots">
+        <Typography.Paragraph type="secondary" className="!mt-0 !text-sm">
+          Bots whose saved chat messages this bundle exposes through the{" "}
+          <Typography.Text code>bots_</Typography.Text> tools. None are exposed unless you pick them.
+        </Typography.Paragraph>
+
+        {allBots.length === 0 ? (
+          <Typography.Text type="secondary" className="!text-sm">
+            This team has no bots yet.
+          </Typography.Text>
+        ) : (
+          <>
+            <Select
+              mode="multiple"
+              value={ids}
+              onChange={setIds}
+              className="w-full"
+              placeholder="Pick bots to expose"
+              options={allBots.map((b) => ({
+                value: b.id,
+                label: b.username ? `${b.name} (@${b.username})` : b.name,
+              }))}
+              optionFilterProp="label"
+              suffixIcon={<RobotOutlined />}
+            />
+            <div className="mt-3 flex gap-2">
+              <Button type="primary" loading={pending} disabled={!dirty} onClick={save}>
+                Save changes
+              </Button>
+              <Button disabled={!dirty} onClick={() => setIds(initialSelected)}>
                 Cancel
               </Button>
             </div>

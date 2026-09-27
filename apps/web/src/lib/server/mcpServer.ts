@@ -44,6 +44,7 @@ import {
   handleWrapperCall,
   type WrapperWithCredentials,
 } from "@/lib/server/wrapperTools";
+import { BOT_TOOLS, BOT_TOOL_NAMES, runBotTool } from "@/lib/server/botTools";
 
 function principalFrom(extra: { authInfo?: AuthInfo }): Principal {
   const p = extra.authInfo?.extra?.principal as Principal | undefined;
@@ -164,13 +165,16 @@ export function buildMcpHandler(
   connections: McpConnection[] = [],
   wrappers: WrapperWithCredentials[] = [],
   instructions?: string,
-  opts: { endpoint?: string; teamScope?: string; vaultFilter?: VaultFilter } = {},
+  opts: { endpoint?: string; teamScope?: string; vaultFilter?: VaultFilter; botIds?: string[] } = {},
 ) {
   const endpoint = opts.endpoint ?? "/";
   const vaultFilter = opts.vaultFilter;
   // Only expose the credential tools when the bundle actually resolves to at
   // least one vault (the team has vaults and the bundle's selection keeps some).
   const hasVaults = (vaultFilter?.allowedVaultIds.length ?? 0) > 0;
+  // Bot tools only when the bundle exposes at least one bot.
+  const botIds = opts.botIds ?? [];
+  const hasBots = botIds.length > 0;
   // The team this endpoint serves, autodetected from the route. Both the root
   // mount and /[teamSlug] resolve to a single team, so root-source calls
   // (status + credential tools) are attributed to it just like group/connection
@@ -187,6 +191,7 @@ export function buildMcpHandler(
         return {
           tools: [
             ...(hasVaults ? CREDENTIAL_TOOLS : []),
+            ...(hasBots ? BOT_TOOLS : []),
             STATUS_TOOL,
             ...perGroup.flat(),
             ...perConn.flat(),
@@ -237,6 +242,36 @@ export function buildMcpHandler(
               teamId,
               toolName: name,
               args: name === "view_credential" ? { credentialId: args.credentialId } : args,
+              ok: !result.isError,
+              error: result.isError ? resultText(result) : null,
+              durationMs: Date.now() - started,
+              details: callDetails(headers, result.isError ? resultText(result) : undefined),
+            });
+            return result;
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : "call failed";
+            await logMcpCall(principal, {
+              source: "root",
+              teamId,
+              toolName: name,
+              args,
+              ok: false,
+              error: msg,
+              durationMs: Date.now() - started,
+              details: callDetails(headers, e),
+            });
+            return errorResult(msg);
+          }
+        }
+
+        if (hasBots && BOT_TOOL_NAMES.has(name)) {
+          try {
+            const result = await runBotTool(botIds, name, args);
+            await logMcpCall(principal, {
+              source: "root",
+              teamId,
+              toolName: name,
+              args,
               ok: !result.isError,
               error: result.isError ? resultText(result) : null,
               durationMs: Date.now() - started,

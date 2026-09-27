@@ -87,7 +87,7 @@ export default async function BotPage({
         username: bot.username,
         status: botStatus(bot),
         lastError: bot.lastError,
-        expectedWebhookUrl: webhookUrl(bot.id),
+        expectedWebhookUrl: await webhookUrl(bot.id),
       }}
       webhook={webhook}
       chats={chats}

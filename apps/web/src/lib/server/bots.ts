@@ -3,7 +3,8 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { Prisma, type Bot } from "@prisma/client";
 import { prisma } from "@/lib/server/db";
 import { decryptContent } from "@/lib/server/crypto";
-import { appUrl } from "@/lib/server/serverEnv";
+import { headers } from "next/headers";
+import { requestOrigin } from "@/lib/server/serverEnv";
 import {
   TELEGRAM_ALLOWED_UPDATES,
   TELEGRAM_MAX_DOWNLOAD_BYTES,
@@ -26,8 +27,11 @@ function sha256(s: string): string {
   return createHash("sha256").update(s).digest("hex");
 }
 
-export function webhookUrl(botId: string): string {
-  return `${appUrl()}/api/bots/telegram/${botId}`;
+// Built from the current request's origin: Telegram does not follow redirects,
+// so the URL must be the exact https address (see requestOrigin).
+export async function webhookUrl(botId: string): Promise<string> {
+  const h = await headers();
+  return `${requestOrigin((n) => h.get(n))}/api/bots/telegram/${botId}`;
 }
 
 // Points the bot's webhook here with a fresh secret. Updates that Telegram
@@ -36,7 +40,7 @@ export async function connectWebhook(bot: Bot): Promise<void> {
   const secret = randomBytes(32).toString("base64url");
   try {
     await telegramCall(botToken(bot), "setWebhook", {
-      url: webhookUrl(bot.id),
+      url: await webhookUrl(bot.id),
       secret_token: secret,
       allowed_updates: TELEGRAM_ALLOWED_UPDATES,
     });

@@ -34,3 +34,13 @@ export type ServerEnv = z.infer<typeof schema>;
 export function appUrl(): string {
   return (serverEnv.APP_URL ?? "http://localhost:3069").replace(/\/$/, "");
 }
+
+// Origin the caller used, from proxy headers; https unless on localhost. Falls
+// back to APP_URL. Use for URLs handed to outside services, which must not hit
+// a redirect.
+export function requestOrigin(get: (name: string) => string | null | undefined): string {
+  const host = get("x-forwarded-host") ?? get("host");
+  if (!host) return appUrl();
+  const proto = get("x-forwarded-proto") ?? (/^(localhost|127\.0\.0\.1)(:|$)/.test(host) ? "http" : "https");
+  return `${proto}://${host}`;
+}

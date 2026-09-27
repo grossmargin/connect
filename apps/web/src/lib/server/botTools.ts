@@ -2,7 +2,7 @@ import "server-only";
 import type { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/server/db";
-import { appUrl, serverEnv } from "@/lib/server/serverEnv";
+import { serverEnv } from "@/lib/server/serverEnv";
 import { ATTACHMENT_LINK_TTL_SECONDS, signAttachmentQuery } from "@/lib/server/attachmentLinks";
 import { errorResult, text } from "@/lib/server/mcpToolShared";
 import { isUuid } from "@/lib/isomorphic/ids";
@@ -251,7 +251,11 @@ function isTextLike(mime: string | null, fileName: string | null): boolean {
   return !!fileName && /\.(txt|csv|tsv|json|md|xml|ya?ml|log)$/i.test(fileName);
 }
 
-async function getAttachment(botIds: string[], args: Record<string, unknown>): Promise<CallToolResult> {
+async function getAttachment(
+  botIds: string[],
+  args: Record<string, unknown>,
+  origin: string,
+): Promise<CallToolResult> {
   const attachmentId = String(args.attachmentId ?? "");
   const a = isUuid(attachmentId)
     ? await prisma.botAttachment.findFirst({
@@ -270,7 +274,7 @@ async function getAttachment(botIds: string[], args: Record<string, unknown>): P
     fileName: a.fileName,
     mimeType,
     size: a.size,
-    downloadUrl: `${appUrl()}/api/bots/attachments/${a.id}?exp=${exp}&sig=${sig}`,
+    downloadUrl: `${origin}/api/bots/attachments/${a.id}?exp=${exp}&sig=${sig}`,
     expiresAt: new Date(exp * 1000).toISOString(),
   };
 
@@ -293,10 +297,16 @@ async function getAttachment(botIds: string[], args: Record<string, unknown>): P
 }
 
 // Throws on bad arguments (e.g. a malformed time); the caller reports it as a tool error.
-export async function runBotTool(botIds: string[], name: string, args: Record<string, unknown>): Promise<CallToolResult> {
+// `origin` is the base for download URLs.
+export async function runBotTool(
+  botIds: string[],
+  name: string,
+  args: Record<string, unknown>,
+  origin: string,
+): Promise<CallToolResult> {
   if (name === "bots_list_chats") return json({ chats: await listChats(botIds, args) });
   if (name === "bots_get_messages") return getMessages(botIds, args);
   if (name === "bots_search_messages") return searchMessages(botIds, args);
-  if (name === "bots_get_attachment") return getAttachment(botIds, args);
+  if (name === "bots_get_attachment") return getAttachment(botIds, args, origin);
   return errorResult(`Unknown tool "${name}".`);
 }

@@ -45,6 +45,7 @@ import {
   type WrapperWithCredentials,
 } from "@/lib/server/wrapperTools";
 import { BOT_TOOLS, BOT_TOOL_NAMES, runBotTool } from "@/lib/server/botTools";
+import { requestOrigin } from "@/lib/server/serverEnv";
 
 function principalFrom(extra: { authInfo?: AuthInfo }): Principal {
   const p = extra.authInfo?.extra?.principal as Principal | undefined;
@@ -266,7 +267,8 @@ export function buildMcpHandler(
 
         if (hasBots && BOT_TOOL_NAMES.has(name)) {
           try {
-            const result = await runBotTool(botIds, name, args);
+            const origin = requestOrigin((n) => headerValue(headers, n));
+            const result = await runBotTool(botIds, name, args, origin);
             await logMcpCall(principal, {
               source: "root",
               teamId,

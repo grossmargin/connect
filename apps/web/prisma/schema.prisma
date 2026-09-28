@@ -96,6 +96,7 @@ model Team {
   mcpGroups       McpGroup[]
   kvEntries       KeyValueStore[]
   bots            Bot[]
+  agents          Agent[]
 }
 
 // An invitation to join a team. `code` is the secret in the invite link; email
@@ -150,6 +151,8 @@ model McpScope {
   toolsets McpToolset[] @relation("McpScopeToolsets")
   // Bots whose saved messages this bundle exposes through the bots_ tools.
   bots     Bot[]        @relation("McpScopeBots")
+  // Agents that use this bundle.
+  agents   Agent[]      @relation("AgentScopes")
 
   @@unique([teamId, slug])
   @@index([teamId])
@@ -547,6 +550,7 @@ model Bot {
   messages BotMessage[]
   // Bundles that expose this bot.
   scopes   McpScope[]   @relation("McpScopeBots")
+  agents   AgentBot[]
 
   // A bot has one webhook, so it can belong to one team only.
   @@unique([platform, externalId])
@@ -604,4 +608,41 @@ model BotAttachment {
   message BotMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
 
   @@unique([messageId, fileUniqueId])
+}
+
+// ---------- Agents ----------
+
+// An AI agent definition: the bots it works through (with what it watches in
+// each), the bundled MCPs it may use, and where its system prompt lives.
+// Config only; nothing runs agents yet.
+model Agent {
+  id              String   @id @default(uuid()) @db.Uuid
+  teamId          String   @db.Uuid
+  name            String
+  // Link to the system prompt (e.g. a Notion page). Not fetched.
+  systemPromptUrl String?
+  createdById     String?  @db.Uuid
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  team   Team       @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  bots   AgentBot[]
+  scopes McpScope[] @relation("AgentScopes")
+
+  @@index([teamId])
+}
+
+// One bot an agent works through, with what the agent watches there.
+model AgentBot {
+  agentId String @db.Uuid
+  botId   String @db.Uuid
+  // Shape depends on the bot's platform, see lib/isomorphic/agentContext.ts.
+  // telegram: { watch: string[] } (@usernames, @groupnames or chat ids)
+  context Json   @default("{}") @db.JsonB
+
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  bot   Bot   @relation(fields: [botId], references: [id], onDelete: Cascade)
+
+  @@id([agentId, botId])
+  @@index([botId])
 }

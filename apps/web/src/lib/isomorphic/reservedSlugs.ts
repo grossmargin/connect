@@ -33,6 +33,7 @@ export const TEAM_SUBROUTES = new Set([
   "published",
   "settings",
   "bots",
+  "agents",
   "mcp",
   "otlp",
 ]);

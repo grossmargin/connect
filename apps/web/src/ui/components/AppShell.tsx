@@ -15,6 +15,7 @@ import {
   SettingOutlined,
   ShareAltOutlined,
   SwapOutlined,
+  TeamOutlined,
   UserOutlined,
 } from "@ant-design/icons";
 import Link from "next/link";
@@ -27,6 +28,9 @@ import { TeamProvider } from "@/ui/components/TeamContext";
 export type TeamOption = { id: string; name: string; slug: string };
 
 const { Sider, Content } = Layout;
+
+// Sections with detail pages; the nav item stays selected on them.
+const SECTIONS = ["mcp-connections", "published", "bots", "agents"];
 
 function initials(text: string): string {
   const parts = text.trim().split(/[\s@.]+/).filter(Boolean);
@@ -59,7 +63,7 @@ export function AppShell({
   teams?: TeamOption[];
   userName?: string | null;
   email?: string | null;
-  counts: { connections: number; scopes: number; bots: number };
+  counts: { connections: number; scopes: number; bots: number; agents: number };
   isAdmin?: boolean;
   children: React.ReactNode;
 }) {
@@ -87,6 +91,11 @@ export function AppShell({
       key: `${base}/bots`,
       icon: <RobotOutlined />,
       label: <Link href={`${base}/bots`}>{navLabel("Bots", counts.bots)}</Link>,
+    },
+    {
+      key: `${base}/agents`,
+      icon: <TeamOutlined />,
+      label: <Link href={`${base}/agents`}>{navLabel("Agents", counts.agents)}</Link>,
     },
     {
       key: `${base}/settings`,
@@ -155,7 +164,7 @@ export function AppShell({
             <Menu
               mode="inline"
               theme="light"
-              selectedKeys={[vaultsActive ? base : pathname.startsWith(`${base}/bots`) ? `${base}/bots` : pathname]}
+              selectedKeys={[vaultsActive ? base : (SECTIONS.map((s) => `${base}/${s}`).find((k) => pathname.startsWith(k)) ?? pathname)]}
               items={items}
               className="flex-1 !border-r-0"
             />

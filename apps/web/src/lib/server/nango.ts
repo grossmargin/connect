@@ -109,3 +109,13 @@ export async function fetchNangoToken(ref: NangoRef): Promise<NangoToken> {
     expiresAt: data.credentials?.expires_at ?? null,
   };
 }
+
+// Access token for the team-wide Notion connection (NANGO_NOTION_CONNECTION_ID).
+export async function fetchNotionToken(): Promise<string> {
+  const connectionId = serverEnv.NANGO_NOTION_CONNECTION_ID;
+  if (!connectionId) throw new NangoError("NANGO_NOTION_CONNECTION_ID is not set");
+  const providerConfigKey =
+    serverEnv.NANGO_NOTION_PROVIDER_CONFIG_KEY ?? (await getNangoConnectionInfo(connectionId))?.providerConfigKey;
+  if (!providerConfigKey) throw new NangoError(`Nango has no connection "${connectionId}"`);
+  return (await fetchNangoToken({ connectionId, providerConfigKey })).accessToken;
+}

@@ -12,7 +12,7 @@ import { fetchNangoToken, parseNangoRef } from "@/lib/server/nango";
 const CHECK_TIMEOUT_MS = 30_000;
 const CONCURRENCY = 8;
 
-// "skipped": nothing to test (MCP connection has no credentials yet).
+// "skipped": nothing to test (MCP connection not registered or not authorized yet).
 export type HealthStatus = "ok" | "error" | "skipped";
 
 export type McpHealth = {
@@ -118,13 +118,17 @@ export async function testMcpConnection(conn: McpConnection): Promise<McpTestRes
 async function checkMcp(conn: McpConnection): Promise<McpHealth> {
   const base = { id: conn.id, name: conn.name, slug: conn.slug, url: conn.url };
   const startedAt = Date.now();
-  let hasCreds: boolean;
+  let creds: ReturnType<typeof readCredentials>;
   try {
-    hasCreds = !!readCredentials(conn.encryptedCredentials);
+    creds = readCredentials(conn.encryptedCredentials);
   } catch (e) {
     return { ...base, status: "error", error: errorMessage(e), durationMs: 0 };
   }
-  if (!hasCreds) return { ...base, status: "skipped", error: "Not registered", durationMs: 0 };
+  if (!creds) return { ...base, status: "skipped", error: "Not registered", durationMs: 0 };
+  // Not authorized yet: keep the status the OAuth flow set.
+  if (creds.authType === "DCR" && !creds.accessToken) {
+    return { ...base, status: "skipped", error: conn.lastError ?? "Not authorized", durationMs: 0 };
+  }
 
   const r = await testMcpConnection(conn);
   const durationMs = Date.now() - startedAt;

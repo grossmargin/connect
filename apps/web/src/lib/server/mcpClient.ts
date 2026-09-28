@@ -20,6 +20,7 @@ import type { McpConnection } from "@prisma/client";
 import type { DcrCredentials, McpCredentials } from "@/lib/server/mcpCredentials";
 import { appUrl } from "@/lib/server/serverEnv";
 import { http } from "@/lib/server/http";
+import { loggingFetch, logEvent, redactUrl } from "@/lib/server/httpLog";
 
 // HTTP headers attached to every request to an upstream server. For DCR this is
 // just an OAuth bearer; for HEADERS it's the user-supplied header map.
@@ -29,11 +30,12 @@ const FETCH_TIMEOUT_MS = 10_000;
 
 // fetch with a hard timeout, so a stuck or slow remote server can't hang a
 // request forever. Combines any caller-provided signal with the timeout.
-const timeoutFetch: typeof fetch = (input, init) => {
+// Every request and response is logged (see httpLog.ts).
+const timeoutFetch: typeof fetch = loggingFetch("mcp-http", (input, init) => {
   const timeout = AbortSignal.timeout(FETCH_TIMEOUT_MS);
   const signal = init?.signal ? AbortSignal.any([init.signal, timeout]) : timeout;
   return fetch(input, { ...init, signal });
-};
+});
 
 export function callbackUrl(): string {
   // Conventional loopback path many MCP servers (e.g. Ramp) auto-trust.
@@ -122,6 +124,14 @@ export async function buildAuthorization(conn: McpConnection, creds: DcrCredenti
     scope: creds.scope ?? d.scope,
     state,
     resource: new URL(creds.resource ?? conn.url),
+  });
+  logEvent("oauth", {
+    event: "authorize_url",
+    connectionId: conn.id,
+    url: conn.url,
+    clientId: creds.clientId,
+    authorizationUrl: redactUrl(authorizationUrl.toString()),
+    params: Object.fromEntries(authorizationUrl.searchParams),
   });
   return { authorizationUrl: authorizationUrl.toString(), codeVerifier };
 }

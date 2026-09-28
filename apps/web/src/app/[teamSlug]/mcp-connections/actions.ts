@@ -19,6 +19,7 @@ import {
   type ToolInfo,
 } from "@/lib/server/mcpClient";
 import { testMcpConnection } from "@/lib/server/connectionHealth";
+import { errorInfo, logEvent } from "@/lib/server/httpLog";
 import {
   isAllowedLocalMcpPackage,
   findLocalMcpPackage,
@@ -270,6 +271,7 @@ export async function startAuthorize(
     await kvSet(teamId, OAUTH_STATE_NS, state, { connectionId, codeVerifier }, OAUTH_STATE_TTL_SECONDS);
     return { url: authorizationUrl };
   } catch (e) {
+    logEvent("oauth", { event: "authorize_failed", connectionId, url: conn.url, error: errorInfo(e) });
     return { error: errorMessage(e) };
   }
 }

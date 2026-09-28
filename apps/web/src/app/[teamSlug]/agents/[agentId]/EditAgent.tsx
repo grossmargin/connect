@@ -145,7 +145,7 @@ export function EditAgent({
                           className="font-mono !text-sm"
                         />
                         <Typography.Text type="secondary" className="mt-1 block text-xs">
-                          What to watch: one @username, @groupname or chat id per line. Empty means all chats.
+                          What to watch: one @username, @groupname or chat id per line. Empty means no chats.
                         </Typography.Text>
                       </>
                     )}

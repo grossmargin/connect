@@ -637,7 +637,7 @@ model AgentBot {
   agentId String @db.Uuid
   botId   String @db.Uuid
   // Shape depends on the bot's platform, see lib/isomorphic/agentContext.ts.
-  // telegram: { watch: string[] } (@usernames, @groupnames or chat ids)
+  // telegram: { watch: string[] } (@usernames, @groupnames or chat ids; empty = none)
   context Json   @default("{}") @db.JsonB
 
   agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)

@@ -5,6 +5,7 @@ import type { MenuProps } from "antd";
 import {
   ApiOutlined,
   BarChartOutlined,
+  HeartOutlined,
   CheckOutlined,
   DownOutlined,
   FolderOutlined,
@@ -108,6 +109,11 @@ export function AppShell({
             key: `${base}/stats`,
             icon: <BarChartOutlined />,
             label: <Link href={`${base}/stats`}>{navLabel("Team Stats")}</Link>,
+          },
+          {
+            key: `${base}/stats/connections`,
+            icon: <HeartOutlined />,
+            label: <Link href={`${base}/stats/connections`}>{navLabel("Connection Statuses")}</Link>,
           },
         ]
       : []),

@@ -8,7 +8,8 @@
 // accept. Scope lists are intentionally omitted — they're long and are fetched
 // at runtime from the protected-resource metadata.
 //
-// All `probedAt` facts below were verified by live requests on 2026-09-19.
+// All `probedAt` facts below were verified by live requests on the date noted
+// in each entry.
 
 /** OAuth Dynamic Client Registration (RFC 7591) posture of a server. */
 export type DcrSupport =
@@ -132,6 +133,21 @@ export const KNOWN_MCP_SERVERS: KnownMcpServer[] = [
       "The alternate Okta auth server (accounts-api.brex.com/oauth2/default) is gated — avoid it.",
   },
   {
+    name: "Carta",
+    url: "https://mcp.app.carta.com/mcp",
+    authorizationServer: "https://mcp.app.carta.com/",
+    registrationEndpoint: "https://mcp.app.carta.com/register",
+    dcr: "open",
+    // Registers clients as application_type "native": any https, loopback http
+    // and custom schemes are accepted; public http is refused.
+    redirect: { ...STANDARD_REDIRECT, customScheme: true },
+    selfServeConnect: true,
+    probedAt: "2026-09-27",
+    notes:
+      "Protected-resource well-known is at /.well-known/oauth-protected-resource/mcp " +
+      "(bare path 404s). Rejects public http with \"not allowed for application_type 'native'\".",
+  },
+  {
     name: "Deel",
     url: "https://api.letsdeel.com/mcp",
     authorizationServer: "https://api.letsdeel.com",
@@ -180,6 +196,24 @@ export const KNOWN_MCP_SERVERS: KnownMcpServer[] = [
     selfServeConnect: true,
     verifiedConnected: true, // CONNECTED row exists
     probedAt: "2026-09-19",
+  },
+  {
+    name: "Justworks",
+    // The MCP endpoint is the bare origin — /mcp 404s.
+    url: "https://mcp.justworks.com",
+    authorizationServer: "https://public-api.justworks.com",
+    // The auth server advertises no registration_endpoint (/register,
+    // /oauth/register all 404). It sets client_id_metadata_document_supported
+    // instead, i.e. clients identify themselves by an https client_id URL
+    // (CIMD). Our connect flow only does DCR, so it can't connect Justworks yet.
+    dcr: "none",
+    selfServeConnect: false,
+    probedAt: "2026-09-27",
+    notes:
+      "Read-only scopes (company, member, payroll, paystub, deductions, time_off, subscriptions). " +
+      "Authorize endpoint is on payroll.justworks.com. To connect we'd need Client ID Metadata " +
+      "Document support in our OAuth client (publish a client metadata JSON at an https URL we " +
+      "own and use that URL as client_id).",
   },
   {
     name: "Mercury",

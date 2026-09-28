@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
-  "buildCommand": "prisma generate && prisma db push --skip-generate && next build"
+  "buildCommand": "prisma generate && prisma db push --skip-generate && next build",
+  "crons": [{ "path": "/api/cron/connection-health", "schedule": "0 * * * *" }]
 }

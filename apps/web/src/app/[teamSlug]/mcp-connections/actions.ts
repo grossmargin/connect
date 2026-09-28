@@ -18,7 +18,7 @@ import {
   buildAuthorization,
   type ToolInfo,
 } from "@/lib/server/mcpClient";
-import { probeConn } from "@/lib/server/upstream";
+import { testMcpConnection } from "@/lib/server/connectionHealth";
 import {
   isAllowedLocalMcpPackage,
   findLocalMcpPackage,
@@ -283,51 +283,14 @@ export async function testConnection(
   const conn = await prisma.mcpConnection.findUnique({ where: { id: connectionId } });
   if (!conn || conn.teamId !== teamId) return { error: "not found" };
 
-  const startedAt = Date.now();
-  const details: Record<string, unknown> = {
-    connectionId,
-    name: conn.name,
-    slug: conn.slug,
-    url: conn.url,
-    authType: conn.authType,
-    startedAt: new Date(startedAt).toISOString(),
-  };
-
   try {
-    const creds = readCredentials(conn.encryptedCredentials);
-    if (!creds) return { error: "Connection is not registered." };
-
-    // probeConn opens the right upstream (remote over HTTP, or a local stdio
-    // server in a worker thread) and, for OAuth, refreshes + persists the token.
-    const { tools, instructions } = await probeConn(conn);
-    const now = new Date();
-    details.durationMs = Date.now() - startedAt;
-    details.toolCount = tools.length;
-    details.toolNames = tools.map((t) => t.name);
-    details.tools = tools;
-    details.hasInstructions = !!instructions;
-    details.instructionsLength = instructions?.length ?? 0;
-    details.instructionsPreview = instructions?.slice(0, 2000);
-
-    await prisma.mcpConnection.update({
-      where: { id: connectionId },
-      data: { status: "CONNECTED", lastConnectedAt: now, lastTestedAt: now, lastError: null },
-    });
-    await prisma.connectionTestLog.create({ data: { teamId, connectionId, ok: true, details: details as Prisma.InputJsonValue } });
-    revalidatePath(`/${teamId}/mcp-connections`);
-    return { tools, instructions };
+    if (!readCredentials(conn.encryptedCredentials)) return { error: "Connection is not registered." };
   } catch (e) {
-    const msg = errorMessage(e);
-    details.durationMs = Date.now() - startedAt;
-    details.error = msg;
-    await prisma.mcpConnection.update({
-      where: { id: connectionId },
-      data: { status: "ERROR", lastError: msg, lastTestedAt: new Date() },
-    });
-    await prisma.connectionTestLog.create({ data: { teamId, connectionId, ok: false, details: details as Prisma.InputJsonValue } });
-    revalidatePath(`/${teamId}/mcp-connections`);
-    return { error: msg };
+    return { error: errorMessage(e) };
   }
+  const r = await testMcpConnection(conn);
+  revalidatePath(`/${teamId}/mcp-connections`);
+  return r.ok ? { tools: r.tools, instructions: r.instructions } : { error: r.error };
 }
 
 // Keeps a secret's first/last chars and hides the middle.

@@ -23,6 +23,8 @@ const schema = z.object({
   NANGO_HOST: z.string().optional(),
   NANGO_NOTION_CONNECTION_ID: z.string().optional(),
   NANGO_NOTION_PROVIDER_CONFIG_KEY: z.string().optional(),
+  // Vercel sends it as a bearer to cron routes.
+  CRON_SECRET: z.string().min(1).optional(),
   CLAUDE_OTLP_INTAKE_KEYS: z.string().optional(),
   CLAUDE_OTLP_INTAKE_SALT: z.string().optional(),
   __UNSAFE_PERMANENT_LOGIN: z.string().optional(),

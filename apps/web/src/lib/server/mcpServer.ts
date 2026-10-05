@@ -45,6 +45,7 @@ import {
   type WrapperWithCredentials,
 } from "@/lib/server/wrapperTools";
 import { BOT_TOOLS, BOT_TOOL_NAMES, runBotTool } from "@/lib/server/botTools";
+import { STATE_TOOLS, STATE_TOOL_NAMES, runStateTool } from "@/lib/server/stateTools";
 import { requestOrigin } from "@/lib/server/serverEnv";
 
 function principalFrom(extra: { authInfo?: AuthInfo }): Principal {
@@ -166,7 +167,7 @@ export function buildMcpHandler(
   connections: McpConnection[] = [],
   wrappers: WrapperWithCredentials[] = [],
   instructions?: string,
-  opts: { endpoint?: string; teamScope?: string; vaultFilter?: VaultFilter; botIds?: string[] } = {},
+  opts: { endpoint?: string; teamScope?: string; vaultFilter?: VaultFilter; botIds?: string[]; scopeId?: string } = {},
 ) {
   const endpoint = opts.endpoint ?? "/";
   const vaultFilter = opts.vaultFilter;
@@ -176,6 +177,8 @@ export function buildMcpHandler(
   // Bot tools only when the bundle exposes at least one bot.
   const botIds = opts.botIds ?? [];
   const hasBots = botIds.length > 0;
+  // State tools on every bundle; state is kept per bundle.
+  const scopeId = opts.scopeId;
   // The team this endpoint serves, autodetected from the route. Both the root
   // mount and /[teamSlug] resolve to a single team, so root-source calls
   // (status + credential tools) are attributed to it just like group/connection
@@ -193,6 +196,7 @@ export function buildMcpHandler(
           tools: [
             ...(hasVaults ? CREDENTIAL_TOOLS : []),
             ...(hasBots ? BOT_TOOLS : []),
+            ...(scopeId ? STATE_TOOLS : []),
             STATUS_TOOL,
             ...perGroup.flat(),
             ...perConn.flat(),
@@ -265,15 +269,20 @@ export function buildMcpHandler(
           }
         }
 
-        if (hasBots && BOT_TOOL_NAMES.has(name)) {
+        const botCall = hasBots && BOT_TOOL_NAMES.has(name);
+        const stateCall = !!scopeId && STATE_TOOL_NAMES.has(name);
+        if (botCall || stateCall) {
+          // Saved values can be large; log only where they went.
+          const loggedArgs = name === "state_save" ? { namespace: args.namespace, key: args.key } : args;
           try {
-            const origin = requestOrigin((n) => headerValue(headers, n));
-            const result = await runBotTool(botIds, name, args, origin);
+            const result = botCall
+              ? await runBotTool(botIds, name, args, requestOrigin((n) => headerValue(headers, n)))
+              : await runStateTool(scopeId!, name, args);
             await logMcpCall(principal, {
               source: "root",
               teamId,
               toolName: name,
-              args,
+              args: loggedArgs,
               ok: !result.isError,
               error: result.isError ? resultText(result) : null,
               durationMs: Date.now() - started,
@@ -286,7 +295,7 @@ export function buildMcpHandler(
               source: "root",
               teamId,
               toolName: name,
-              args,
+              args: loggedArgs,
               ok: false,
               error: msg,
               durationMs: Date.now() - started,

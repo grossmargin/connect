@@ -27,6 +27,7 @@ import { CopyId } from "@/ui/components/CopyId";
 import { Page } from "@/ui/components/Page";
 import { DetailHeader } from "@/ui/components/DetailHeader";
 import { useCurrentTeam } from "@/ui/components/TeamContext";
+import { MemoryCard, type StateRow } from "./MemoryCard";
 
 export type ConnOption = { id: string; name: string; slug: string };
 export type VaultOption = { id: string; name: string };
@@ -45,6 +46,7 @@ export function EditPublished({
   selectedVaultIds,
   allBots,
   selectedBotIds,
+  states,
 }: {
   scope: Scope;
   memberConnectionIds: string[];
@@ -55,6 +57,7 @@ export function EditPublished({
   selectedVaultIds: string[];
   allBots: BotOption[];
   selectedBotIds: string[];
+  states: StateRow[];
 }) {
   const router = useRouter();
   const { teamId, teamSlug } = useCurrentTeam();
@@ -288,6 +291,8 @@ export function EditPublished({
               />
             )}
           </Card>
+
+          <MemoryCard scopeId={scope.id} states={states} />
         </div>
 
         <div className="flex flex-col gap-6">

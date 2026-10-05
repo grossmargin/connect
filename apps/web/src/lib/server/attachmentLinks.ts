@@ -4,7 +4,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 // download the file until it expires, so links are only handed to callers that
 // may read the attachment.
 
-export const ATTACHMENT_LINK_TTL_SECONDS = 15 * 60;
+export const ATTACHMENT_LINK_TTL_SECONDS = 5 * 60;
 
 function signature(secret: string, attachmentId: string, exp: number): string {
   return createHmac("sha256", secret).update(`bot-attachment:${attachmentId}:${exp}`).digest("base64url");

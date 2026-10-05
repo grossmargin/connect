@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/server/db";
 import { requireTeam } from "@/lib/server/team";
+import { listStates } from "@/lib/server/stateTools";
 import { EditPublished, type BotOption, type ConnOption, type GroupData, type VaultOption } from "./EditPublished";
 
 export default async function EditPublishedMcpPage({
@@ -43,6 +44,8 @@ export default async function EditPublishedMcpPage({
     select: { id: true, name: true, username: true },
   });
 
+  const states = await listStates(scope.id);
+
   const groups: GroupData[] = scope.groups.map((g) => ({
     id: g.id,
     name: g.name,
@@ -61,6 +64,7 @@ export default async function EditPublishedMcpPage({
       selectedVaultIds={scope.vaults.map((v) => v.id)}
       allBots={allBots as BotOption[]}
       selectedBotIds={scope.bots.map((b) => b.id)}
+      states={states.map((s) => ({ ...s, updatedAt: s.updatedAt.toISOString() }))}
     />
   );
 }

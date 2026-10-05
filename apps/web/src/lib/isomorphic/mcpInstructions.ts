@@ -3,12 +3,15 @@ export type GroupSummary = { name: string; slug: string; tenants: TenantSummary[
 export type ConnSummary = { name: string; slug: string };
 export type VaultSummary = { name: string; description?: string | null };
 export type WrapperSummary = { name: string; slug: string; type: string };
-export type BotSummary = { name: string; platform: string; username?: string | null };
+export type BotSummary = { name: string; platform: string; username?: string | null; description?: string | null };
 
 function botsSection(bots: BotSummary[]): string {
   if (!bots.length) return "";
   const list = bots
-    .map((b) => `- **${b.name}** (${b.platform}${b.username ? `, @${b.username}` : ""})`)
+    .map(
+      (b) =>
+        `- **${b.name}** (${b.platform}${b.username ? `, @${b.username}` : ""})${b.description ? ` — ${b.description}` : ""}`,
+    )
     .join("\n");
   return `
 
@@ -18,8 +21,14 @@ These bots save every message and attachment from the chats they are in (groups,
 
 ${list}
 
-Call \`bots_list_chats\` to find a chat, then \`bots_get_messages\` to read it or \`bots_search_messages\` to find messages by text. \`bots_get_attachment\` returns a short-lived download URL for a file; download it to process large files. Bots only have messages from after they joined a chat.`;
+Call \`bots_get_bots\` to see the bots and their chats. \`bots_get_messages\` reads messages from all chats or one chat, filtered by time; \`bots_search_messages\` finds messages by text. Messages list their attachments; \`bots_download_attachment\` returns a short-lived URL to download a file. Bots only have messages from after they joined a chat.`;
 }
+
+const STATE_SECTION = `
+
+## State
+
+Use \`state_save\`, \`state_get\`, \`state_list\` and \`state_delete\` to keep JSON state between runs, e.g. what a job already processed. State is stored per namespace + key and is shared by everyone who uses this MCP. For text memory, save \`{ "type": "text", "text": "<markdown>" }\`.`;
 
 function wrappersSection(wrappers: WrapperSummary[]): string {
   if (!wrappers.length) return "";
@@ -119,6 +128,6 @@ ${credentialsSection}
 ## MCP tools
 
 Each published MCP contributes tools under its own \`<id>__\` prefix. An individual MCP is called directly; a **group** bundles several accounts (tenants) behind one prefix and needs a \`tenant\` argument to pick the account.${credentialsNote}
-${sections}${wrappersSection(wrappers)}${botsSection(bots)}
+${sections}${wrappersSection(wrappers)}${botsSection(bots)}${STATE_SECTION}
 `;
 }

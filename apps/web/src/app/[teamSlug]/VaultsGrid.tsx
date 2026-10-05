@@ -40,8 +40,8 @@ export function VaultsGrid({ vaults }: { vaults: Vault[] }) {
             key={v.id}
             hoverable
             onClick={() => router.push(`/${teamSlug}/vaults/${v.id}`)}
-            classNames={{ body: "!p-5" }}
-            className="group !rounded-xl"
+            classNames={{ body: "!p-5 flex flex-1 flex-col" }}
+            className="group !flex h-full flex-col !rounded-xl"
           >
             <div className="flex items-start justify-between">
               <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
@@ -50,10 +50,10 @@ export function VaultsGrid({ vaults }: { vaults: Vault[] }) {
               <ArrowRightOutlined className="-rotate-45 text-gray-300 group-hover:text-indigo-500" />
             </div>
             <div className="mt-3 font-semibold text-gray-900">{v.name}</div>
-            <div className="mt-1 min-h-[20px] text-sm text-gray-500">
+            <div className="mt-1 mb-4 min-h-[20px] text-sm text-gray-500">
               {v.description || <span className="text-gray-400">No description</span>}
             </div>
-            <div className="mt-4 flex items-center gap-1.5 border-t border-gray-100 pt-3 text-xs text-gray-400">
+            <div className="mt-auto flex items-center gap-1.5 border-t border-gray-100 pt-3 text-xs text-gray-400">
               <KeyOutlined />
               {v.secretCount} {v.secretCount === 1 ? "secret" : "secrets"}
               <span className="px-1">·</span>

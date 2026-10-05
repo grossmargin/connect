@@ -7,7 +7,7 @@ import { verifyAttachmentQuery } from "@/lib/server/attachmentLinks";
 
 export const dynamic = "force-dynamic";
 
-// Serves a stored attachment. Access: a signed link (from bots_get_attachment)
+// Serves a stored attachment. Access: a signed link (from bots_download_attachment)
 // or a signed-in member of the bot's team.
 export async function GET(req: Request, ctx: { params: Promise<{ attachmentId: string }> }) {
   const { attachmentId } = await ctx.params;

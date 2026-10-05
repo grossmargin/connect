@@ -10,7 +10,7 @@ export type ScopeWithMembers = Prisma.McpScopeGetPayload<{
     connections: true;
     groups: { include: { tenants: true } };
     vaults: { select: { id: true } };
-    bots: { select: { id: true; name: true; username: true; platform: true } };
+    bots: { select: { id: true; name: true; username: true; platform: true; description: true } };
   };
 }>;
 
@@ -18,7 +18,7 @@ const DEFAULT_INCLUDE = {
   connections: true,
   groups: { include: { tenants: true } },
   vaults: { select: { id: true } },
-  bots: { select: { id: true, name: true, username: true, platform: true } },
+  bots: { select: { id: true, name: true, username: true, platform: true, description: true } },
 } as const;
 
 // The team's default Published MCP (served at the team root). Created empty on

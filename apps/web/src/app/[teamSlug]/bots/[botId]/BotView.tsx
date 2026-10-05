@@ -5,7 +5,7 @@ import { PaperClipOutlined, ReloadOutlined, RobotOutlined } from "@ant-design/ic
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import dayjs from "dayjs";
-import { reconnectBot } from "../actions";
+import { reconnectBot, updateBotDescription } from "../actions";
 import { BOT_STATUS_TAG, type BotStatus } from "../status";
 import { DetailHeader } from "@/ui/components/DetailHeader";
 import { Page } from "@/ui/components/Page";
@@ -38,7 +38,7 @@ export function BotView({
   messages,
   limit,
 }: {
-  bot: { id: string; name: string; username: string | null; status: BotStatus; lastError: string | null; expectedWebhookUrl: string };
+  bot: { id: string; name: string; description: string | null; username: string | null; status: BotStatus; lastError: string | null; expectedWebhookUrl: string };
   webhook: { url: string; pending: number; lastError: string | null } | null;
   chats: ChatRow[];
   chatId: string | null;
@@ -59,6 +59,13 @@ export function BotView({
       router.refresh();
     });
 
+  const saveDescription = (description: string) =>
+    start(async () => {
+      const r = await updateBotDescription(teamId, bot.id, description);
+      if (r?.error) message.error(r.error);
+      router.refresh();
+    });
+
   const webhookMismatch = webhook && webhook.url !== bot.expectedWebhookUrl;
 
   return (
@@ -71,6 +78,19 @@ export function BotView({
         backHref={`/${teamSlug}/bots`}
         backLabel="All bots"
       />
+
+      <Typography.Paragraph
+        type={bot.description ? undefined : "secondary"}
+        className="!mb-4 whitespace-pre-wrap"
+        editable={{
+          text: bot.description ?? "",
+          onChange: saveDescription,
+          tooltip: "Edit description",
+          autoSize: { minRows: 2 },
+        }}
+      >
+        {bot.description || "No description. Say what the bot is for and which chats it is in; agents see it."}
+      </Typography.Paragraph>
 
       {bot.lastError && <Alert type="error" showIcon message={bot.lastError} className="!mb-4" />}
       {webhookMismatch && (

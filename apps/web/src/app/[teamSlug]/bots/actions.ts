@@ -81,6 +81,20 @@ export async function reconnectBot(teamId: string, botId: string): Promise<{ err
   }
 }
 
+// Agents see the description through bots_get_bots.
+export async function updateBotDescription(
+  teamId: string,
+  botId: string,
+  description: string,
+): Promise<{ error: string } | void> {
+  await requireMember(teamId);
+  const { count } = await prisma.bot.updateMany({
+    where: { id: botId, teamId },
+    data: { description: description.trim() || null },
+  });
+  if (!count) return { error: "not found" };
+}
+
 // Removes the webhook, then the bot and all its saved messages.
 export async function deleteBot(teamId: string, botId: string): Promise<{ error: string } | void> {
   await requireMember(teamId);

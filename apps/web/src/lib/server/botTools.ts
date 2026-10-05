@@ -20,7 +20,6 @@ function parseChatKey(key: unknown): { botId: string; chatId: string } | null {
   return i > 0 ? { botId: key.slice(0, i), chatId: key.slice(i + 1) } : null;
 }
 
-const INLINE_MAX_BYTES = 1024 * 1024;
 const MESSAGES_DEFAULT = 100;
 const MESSAGES_MAX = 500;
 const SEARCH_DEFAULT = 50;
@@ -33,6 +32,12 @@ const timeArgs = {
 
 export const BOT_TOOLS: Tool[] = [
   {
+    name: "bots_get_bots",
+    description:
+      "List the bots: id, name, type (platform), @username, description, and the chats each bot saved messages from.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
     name: "bots_list_chats",
     description:
       "List the chats (groups, channels, direct messages) the bots saved messages from, newest activity first.",
@@ -44,17 +49,17 @@ export const BOT_TOOLS: Tool[] = [
   {
     name: "bots_get_messages",
     description:
-      "Read messages from one chat in time order, oldest first. Returns the latest messages in the range; " +
+      "Read messages in time order, oldest first, from all chats of all bots or from one chat. Each message " +
+      "names its chat, chat title and bot. Returns the latest messages in the range; " +
       "pass `nextBefore` from the result as `before` to page back to older ones.",
     inputSchema: {
       type: "object",
       properties: {
-        chat: { type: "string", description: "Chat id from bots_list_chats." },
+        chat: { type: "string", description: "Only this chat (id from bots_list_chats). Default: all chats." },
         ...timeArgs,
         before: { type: "string", description: "Paging cursor: `nextBefore` from the previous result." },
         limit: { type: "number", description: `Max messages. Default ${MESSAGES_DEFAULT}, max ${MESSAGES_MAX}.` },
       },
-      required: ["chat"],
     },
   },
   {
@@ -73,16 +78,14 @@ export const BOT_TOOLS: Tool[] = [
     },
   },
   {
-    name: "bots_get_attachment",
+    name: "bots_download_attachment",
     description:
-      `Get a message attachment. Always returns a download URL valid for ${ATTACHMENT_LINK_TTL_SECONDS / 60} minutes ` +
-      "that needs no auth (e.g. `curl -o file <url>`). Images and text files up to 1 MB are also returned inline.",
+      "Get a file attached to a message. Returns the file name, MIME type, size and `downloadUrl`. The file " +
+      "content is not in the result: download the file from `downloadUrl` (e.g. `curl -o <fileName> <downloadUrl>`). " +
+      `The URL needs no auth and expires after ${ATTACHMENT_LINK_TTL_SECONDS / 60} minutes; call this tool again for a new one.`,
     inputSchema: {
       type: "object",
-      properties: {
-        attachmentId: { type: "string" },
-        inline: { type: "boolean", description: "Return small images and text inline. Default true." },
-      },
+      properties: { attachmentId: { type: "string", description: "`attachmentId` from a message." } },
       required: ["attachmentId"],
     },
   },
@@ -127,15 +130,18 @@ const MESSAGE_SELECT = {
   sentAt: true,
   editedAt: true,
   raw: true,
+  bot: { select: { name: true } },
   attachments: { select: { id: true, kind: true, fileName: true, mimeType: true, size: true, error: true } },
 } satisfies Prisma.BotMessageSelect;
 
 type MessageRow = Prisma.BotMessageGetPayload<{ select: typeof MESSAGE_SELECT }>;
 
-function formatMessage(m: MessageRow, withChat: boolean) {
+function formatMessage(m: MessageRow) {
   const replyTo = (m.raw as { reply_to_message?: { message_id?: number } } | null)?.reply_to_message?.message_id;
   return {
-    ...(withChat && { chat: chatKey(m.botId, m.chatId), chatTitle: m.chatTitle }),
+    chat: chatKey(m.botId, m.chatId),
+    chatTitle: m.chatTitle,
+    bot: m.bot.name,
     messageId: m.messageId,
     sender: m.senderName,
     senderId: m.senderId,
@@ -182,6 +188,7 @@ async function listChats(botIds: string[], args: Record<string, unknown>) {
       const key = chatKey(c.botId, c.chatId);
       return {
         chat: key,
+        botId: c.botId,
         title: meta.get(key)?.chatTitle ?? null,
         type: meta.get(key)?.chatType ?? null,
         bot: botName.get(c.botId) ?? c.botId,
@@ -194,9 +201,35 @@ async function listChats(botIds: string[], args: Record<string, unknown>) {
     .sort((a, b) => (b.lastMessageAt ?? "").localeCompare(a.lastMessageAt ?? ""));
 }
 
+async function getBots(botIds: string[]) {
+  const [bots, chats] = await Promise.all([
+    prisma.bot.findMany({
+      where: { id: { in: botIds } },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, platform: true, username: true, description: true },
+    }),
+    listChats(botIds, {}),
+  ]);
+  return bots.map((b) => ({
+    botId: b.id,
+    name: b.name,
+    type: b.platform,
+    username: b.username ? `@${b.username}` : null,
+    description: b.description,
+    chats: chats
+      .filter((c) => c.botId === b.id)
+      .map(({ chat, title, type, messages, lastMessageAt }) => ({ chat, title, type, messages, lastMessageAt })),
+  }));
+}
+
 async function getMessages(botIds: string[], args: Record<string, unknown>): Promise<CallToolResult> {
-  const chat = parseChatKey(args.chat);
-  if (!chat || !botIds.includes(chat.botId)) return errorResult("Unknown chat. Get chat ids from bots_list_chats.");
+  const where: Prisma.BotMessageWhereInput = { botId: { in: botIds }, sentAt: sentAtFilter(args) };
+  if (args.chat != null && args.chat !== "") {
+    const chat = parseChatKey(args.chat);
+    if (!chat || !botIds.includes(chat.botId)) return errorResult("Unknown chat. Get chat ids from bots_list_chats.");
+    where.botId = chat.botId;
+    where.chatId = chat.chatId;
+  }
   const limit = clampLimit(args.limit, MESSAGES_DEFAULT, MESSAGES_MAX);
   const before = args.before == null ? null : String(args.before);
   if (before !== null && !isUuid(before)) return errorResult("`before` must be `nextBefore` from a previous result.");
@@ -204,7 +237,7 @@ async function getMessages(botIds: string[], args: Record<string, unknown>): Pro
   // Newest first to apply the limit, then flip to time order. The cursor is the
   // oldest row of the previous page; `id` breaks ties within one second.
   const rows = await prisma.botMessage.findMany({
-    where: { botId: chat.botId, chatId: chat.chatId, sentAt: sentAtFilter(args) },
+    where,
     orderBy: [{ sentAt: "desc" }, { id: "desc" }],
     ...(before && { cursor: { id: before }, skip: 1 }),
     take: limit + 1,
@@ -213,9 +246,7 @@ async function getMessages(botIds: string[], args: Record<string, unknown>): Pro
   const more = rows.length > limit;
   const page = rows.slice(0, limit).reverse();
   return json({
-    chat: args.chat,
-    chatTitle: page[0]?.chatTitle ?? null,
-    messages: page.map((m) => formatMessage(m, false)),
+    messages: page.map((m) => formatMessage(m)),
     ...(more && page.length > 0 && { nextBefore: page[0].id }),
   });
 }
@@ -243,15 +274,10 @@ async function searchMessages(botIds: string[], args: Record<string, unknown>): 
     take: clampLimit(args.limit, SEARCH_DEFAULT, SEARCH_MAX),
     select: MESSAGE_SELECT,
   });
-  return json({ messages: rows.map((m) => formatMessage(m, true)) });
+  return json({ messages: rows.map((m) => formatMessage(m)) });
 }
 
-function isTextLike(mime: string | null, fileName: string | null): boolean {
-  if (mime && (mime.startsWith("text/") || /json|csv|xml|yaml/.test(mime))) return true;
-  return !!fileName && /\.(txt|csv|tsv|json|md|xml|ya?ml|log)$/i.test(fileName);
-}
-
-async function getAttachment(
+async function downloadAttachment(
   botIds: string[],
   args: Record<string, unknown>,
   origin: string,
@@ -266,34 +292,16 @@ async function getAttachment(
   if (!a) return errorResult("Attachment not found.");
   if (a.error) return errorResult(`The attachment was not saved: ${a.error}`);
 
-  const mimeType = a.mimeType;
   const { exp, sig } = signAttachmentQuery(serverEnv.AUTH_SECRET, a.id);
-  const meta = {
+  return json({
     attachmentId: a.id,
     kind: a.kind,
     fileName: a.fileName,
-    mimeType,
+    mimeType: a.mimeType,
     size: a.size,
     downloadUrl: `${origin}/api/bots/attachments/${a.id}?exp=${exp}&sig=${sig}`,
     expiresAt: new Date(exp * 1000).toISOString(),
-  };
-
-  const image = !!mimeType?.startsWith("image/");
-  const textLike = isTextLike(mimeType, a.fileName);
-  const small = a.size != null && a.size <= INLINE_MAX_BYTES;
-  if (args.inline === false || !small || !(image || textLike)) return json(meta);
-
-  const row = await prisma.botAttachment.findUnique({ where: { id: a.id }, select: { content: true } });
-  const content = row?.content ? Buffer.from(row.content) : null;
-  if (!content) return json(meta);
-  return {
-    content: [
-      { type: "text", text: JSON.stringify(meta, null, 2) },
-      image
-        ? { type: "image", data: content.toString("base64"), mimeType: mimeType! }
-        : { type: "text", text: content.toString("utf8") },
-    ],
-  };
+  });
 }
 
 // Throws on bad arguments (e.g. a malformed time); the caller reports it as a tool error.
@@ -304,9 +312,10 @@ export async function runBotTool(
   args: Record<string, unknown>,
   origin: string,
 ): Promise<CallToolResult> {
+  if (name === "bots_get_bots") return json({ bots: await getBots(botIds) });
   if (name === "bots_list_chats") return json({ chats: await listChats(botIds, args) });
   if (name === "bots_get_messages") return getMessages(botIds, args);
   if (name === "bots_search_messages") return searchMessages(botIds, args);
-  if (name === "bots_get_attachment") return getAttachment(botIds, args, origin);
+  if (name === "bots_download_attachment") return downloadAttachment(botIds, args, origin);
   return errorResult(`Unknown tool "${name}".`);
 }

@@ -235,6 +235,40 @@ export async function updateScopeBots(
   return { ok: true };
 }
 
+// ---------- state (state_ tools) ----------
+
+async function scopeInTeam(teamId: string, scopeId: string): Promise<boolean> {
+  if (!(await requireMember(teamId))) return false;
+  const scope = await prisma.mcpScope.findUnique({ where: { id: scopeId }, select: { teamId: true } });
+  return !!scope && scope.teamId === teamId;
+}
+
+export async function getScopeState(
+  teamId: string,
+  scopeId: string,
+  namespace: string,
+  key: string,
+): Promise<{ error: string } | { value: Prisma.JsonValue | null }> {
+  if (!(await scopeInTeam(teamId, scopeId))) return { error: "not found" };
+  const row = await prisma.bundleState.findUnique({
+    where: { scopeId_namespace_key: { scopeId, namespace, key } },
+    select: { value: true },
+  });
+  return { value: row?.value ?? null };
+}
+
+export async function deleteScopeState(
+  teamId: string,
+  scopeId: string,
+  namespace: string,
+  key: string,
+): Promise<{ error: string } | { ok: true }> {
+  if (!(await scopeInTeam(teamId, scopeId))) return { error: "not found" };
+  await prisma.bundleState.deleteMany({ where: { scopeId, namespace, key } });
+  await revalidate(teamId);
+  return { ok: true };
+}
+
 // ---------- groups (tenanted members) ----------
 
 export async function createGroup(

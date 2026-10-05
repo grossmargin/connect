@@ -84,6 +84,7 @@ export default async function BotPage({
       bot={{
         id: bot.id,
         name: bot.name,
+        description: bot.description,
         username: bot.username,
         status: botStatus(bot),
         lastError: bot.lastError,

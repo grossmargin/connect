@@ -5,7 +5,7 @@ import "server-only";
 // kept). One JSON line per event, so Vercel log search works on any field.
 
 const MAX_BODY = 32_000;
-const SECRET_KEY = /(access|refresh|id)_token|secret|verifier|password|authorization|cookie|api[-_]?key/i;
+const SECRET_KEY = /^(authorization|proxy-authorization|cookie|set-cookie)$|_token$|secret|verifier|password|api[-_]?key/i;
 
 function mask(v: string): string {
   if (v.length <= 12) return `${v.slice(0, 2)}…(${v.length})`;

@@ -1,6 +1,6 @@
 import "server-only";
 import axios, { type InternalAxiosRequestConfig } from "axios";
-import { errorInfo, logEvent, redact, redactUrl } from "@/lib/server/httpLog";
+import { errorInfo, logEvent, parseBody, redact, redactUrl } from "@/lib/server/httpLog";
 
 // Shared server-side HTTP client for our own outbound calls (Nango, DCR).
 // Does not throw on non-2xx — callers inspect `status` themselves. The MCP SDK
@@ -16,12 +16,15 @@ const fullUrl = (c: InternalAxiosRequestConfig) => redactUrl(axios.getUri(c));
 
 http.interceptors.request.use((c: Timed) => {
   c.startedAt = Date.now();
+  // A pre-encoded string body (e.g. an OAuth form) is parsed so its secret
+  // fields get masked too.
+  const contentType = c.headers?.get?.("Content-Type");
   logEvent("http", {
     event: "request",
     method: c.method?.toUpperCase(),
     url: fullUrl(c),
     headers: redact(c.headers?.toJSON?.() ?? c.headers),
-    body: redact(c.data),
+    body: typeof c.data === "string" ? parseBody(c.data, typeof contentType === "string" ? contentType : null) : redact(c.data),
   });
   return c;
 });

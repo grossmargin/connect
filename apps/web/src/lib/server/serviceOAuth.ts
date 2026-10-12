@@ -6,10 +6,9 @@ import { http } from "@/lib/server/http";
 import { serverEnv } from "@/lib/server/serverEnv";
 import { readServiceConfig, updateServiceConfig } from "@/lib/server/serviceConnections";
 import {
-  GOOGLE_SERVICES,
+  googleGrantedFromScopes,
   requestedSelection,
   scopesFor,
-  type GoogleAccess,
   type GoogleServicesConfig,
   type QuickbooksConfig,
   type Selection,
@@ -147,18 +146,9 @@ async function tokenRequest(type: string, body: Record<string, string>): Promise
   return data;
 }
 
-function googleGranted(scope: string | undefined): Selection {
-  const granted = new Set((scope ?? "").split(/\s+/));
-  const out: Selection = {};
-  for (const s of GOOGLE_SERVICES) {
-    const level: GoogleAccess = granted.has(s.scopes.readwrite)
-      ? "readwrite"
-      : granted.has(s.scopes.readonly)
-        ? "readonly"
-        : "none";
-    out[s.key] = level;
-  }
-  return out;
+function grantedFromScope(scope: string) {
+  const grantedScopes = scope.split(/\s+/).filter(Boolean);
+  return { grantedScopes, granted: googleGrantedFromScopes(grantedScopes) };
 }
 
 // The id_token comes straight from Google's token endpoint over TLS, so its
@@ -195,7 +185,7 @@ export async function completeOAuth(
 
   if (conn.type === "google-services") {
     if (!t.refresh_token) throw new ServiceOAuthError("Google returned no refresh token. Try again.");
-    return updateServiceConfig(conn, { ...tokens, granted: googleGranted(t.scope), email: emailFromIdToken(t.id_token) });
+    return updateServiceConfig(conn, { ...tokens, ...grantedFromScope(t.scope ?? ""), email: emailFromIdToken(t.id_token) });
   }
   const realmId = query.get("realmId");
   if (!realmId) throw new ServiceOAuthError("QuickBooks returned no realmId.");
@@ -240,13 +230,15 @@ export async function getServiceCredentials(
       // Intuit rotates refresh tokens; Google keeps the old one.
       ...(t.refresh_token ? { refreshToken: t.refresh_token } : {}),
       ...(t.x_refresh_token_expires_in ? { refreshTokenExpiresAt: now + t.x_refresh_token_expires_in * 1000 } : {}),
+      // Google reports the scopes on refresh too; keeps older rows accurate.
+      ...(conn.type === "google-services" && t.scope ? grantedFromScope(t.scope) : {}),
     });
     cfg = readServiceConfig(saved);
   }
 
   const base = { access_token: cfg.accessToken!, expires_at: new Date(cfg.expiresAt!).toISOString() };
   if (conn.type === "google-services") {
-    return { ...base, scopes: scopesFor(conn.type, cfg.granted as Selection), account: cfg.email };
+    return { ...base, scopes: cfg.grantedScopes ?? scopesFor(conn.type, cfg.granted as Selection), account: cfg.email };
   }
   const env = cfg.environment ?? "sandbox";
   return { ...base, realm_id: cfg.realmId, environment: env, api_base_url: QB_API_BASE[env] };

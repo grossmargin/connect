@@ -10,16 +10,17 @@ import { z } from "zod";
 export const GOOGLE_ACCESS_LEVELS = ["none", "readonly", "readwrite"] as const;
 export type GoogleAccess = (typeof GOOGLE_ACCESS_LEVELS)[number];
 
-// The Google services a connection can grant, with the scope for each level
-// and the level a new connection starts with.
+// The Google services a connection can grant, with the scopes for each level
+// and the level a new connection starts with. Read-write asks for everything
+// the service offers, so agents are never short of a scope.
 export const GOOGLE_SERVICES = [
   {
     key: "drive",
     label: "Google Drive",
     defaultAccess: "readonly",
     scopes: {
-      readonly: "https://www.googleapis.com/auth/drive.readonly",
-      readwrite: "https://www.googleapis.com/auth/drive",
+      readonly: ["https://www.googleapis.com/auth/drive.readonly"],
+      readwrite: ["https://www.googleapis.com/auth/drive"],
     },
   },
   {
@@ -27,9 +28,14 @@ export const GOOGLE_SERVICES = [
     label: "Gmail",
     defaultAccess: "none",
     scopes: {
-      readonly: "https://www.googleapis.com/auth/gmail.readonly",
-      // Read, send, label and trash mail. No permanent delete (that needs https://mail.google.com/).
-      readwrite: "https://www.googleapis.com/auth/gmail.modify",
+      readonly: ["https://www.googleapis.com/auth/gmail.readonly"],
+      // Full mailbox access (incl. permanent delete) plus settings: filters,
+      // labels, vacation (basic) and forwarding, send-as, delegates (sharing).
+      readwrite: [
+        "https://mail.google.com/",
+        "https://www.googleapis.com/auth/gmail.settings.basic",
+        "https://www.googleapis.com/auth/gmail.settings.sharing",
+      ],
     },
   },
 ] as const;
@@ -41,8 +47,11 @@ const googleScopeMap = z.record(z.string(), googleAccess);
 const googleSchema = z.object({
   // What the user asked for, per service.
   scopes: googleScopeMap.default({}),
-  // What the last consent granted. Differs from `scopes` until reconnect.
+  // What the last consent granted, as levels (derived from grantedScopes).
+  // Differs from `scopes` until reconnect.
   granted: googleScopeMap.optional(),
+  // The exact scopes Google reported on the last consent or refresh.
+  grantedScopes: z.array(z.string()).optional(),
   email: z.string().optional(),
   accessToken: z.string().optional(),
   refreshToken: z.string().optional(),
@@ -143,7 +152,7 @@ export function scopesFor(type: string, sel: Selection | undefined): string[] {
   const scopes = ["openid", "email"];
   for (const s of GOOGLE_SERVICES) {
     const level = n[s.key] as GoogleAccess;
-    if (level !== "none") scopes.push(s.scopes[level]);
+    if (level !== "none") scopes.push(...s.scopes[level]);
   }
   return scopes;
 }
@@ -158,6 +167,18 @@ export function selectionLabel(type: string, sel: Selection | undefined): string
           (s) => `${s.label.replace(/^Google /, "")} (${n[s.key] === "readonly" ? "read-only" : "read-write"})`,
         );
   return parts.join(", ") || "nothing";
+}
+
+// Access levels covered by the scopes Google granted. A level counts only when
+// every one of its scopes was granted.
+export function googleGrantedFromScopes(scopes: string[]): Selection {
+  const granted = new Set(scopes);
+  const has = (list: readonly string[]) => list.every((x) => granted.has(x));
+  const out: Selection = {};
+  for (const s of GOOGLE_SERVICES) {
+    out[s.key] = has(s.scopes.readwrite) ? "readwrite" : has(s.scopes.readonly) ? "readonly" : "none";
+  }
+  return out;
 }
 
 export type ServiceConnectionState = "NOT_CONNECTED" | "CONNECTED" | "NEEDS_RECONNECT";

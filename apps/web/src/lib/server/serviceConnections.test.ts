@@ -49,7 +49,9 @@ test("scopes follow the selection", () => {
   expect(types.scopesFor("google-services", { drive: "none", gmail: "readwrite" })).toEqual([
     "openid",
     "email",
-    "https://www.googleapis.com/auth/gmail.modify",
+    "https://mail.google.com/",
+    "https://www.googleapis.com/auth/gmail.settings.basic",
+    "https://www.googleapis.com/auth/gmail.settings.sharing",
   ]);
   expect(types.selectionIsEmpty("google-services", { drive: "none" })).toBe(true);
   expect(types.selectionIsEmpty("quickbooks", {})).toBe(true);
@@ -74,4 +76,18 @@ test("selection label", () => {
     "Drive (read-only), Gmail (read-write)",
   );
   expect(types.selectionLabel("quickbooks", { accounting: true, payments: true })).toBe("Accounting, Payments");
+});
+
+test("granted levels come from the exact scopes", () => {
+  const drive = "https://www.googleapis.com/auth/drive";
+  // gmail.modify alone (old read-write) no longer counts as read-write.
+  expect(types.googleGrantedFromScopes([drive, "https://www.googleapis.com/auth/gmail.modify"])).toEqual({
+    drive: "readwrite",
+    gmail: "none",
+  });
+  expect(
+    types.googleGrantedFromScopes(types.scopesFor("google-services", { drive: "readonly", gmail: "readwrite" })),
+  ).toEqual({ drive: "readonly", gmail: "readwrite" });
+  // Missing one settings scope: not read-write.
+  expect(types.googleGrantedFromScopes(["https://mail.google.com/", "https://www.googleapis.com/auth/gmail.settings.basic"]).gmail).toBe("none");
 });

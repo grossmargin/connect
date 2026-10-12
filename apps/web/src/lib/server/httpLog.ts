@@ -26,7 +26,7 @@ function cap(s: string): string {
 }
 
 // Parses a JSON or form body so secret fields can be masked. Falls back to text.
-function parseBody(text: string, contentType: string | null): unknown {
+export function parseBody(text: string, contentType: string | null): unknown {
   if (!text) return undefined;
   try {
     if (contentType?.includes("application/x-www-form-urlencoded")) {

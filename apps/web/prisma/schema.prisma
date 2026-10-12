@@ -473,7 +473,7 @@ model AuditLog {
   actorType    String // USER | SERVICE_ACCOUNT
   actorId      String   @db.Uuid
   // VIEW_CREDENTIAL | CREATE_CREDENTIAL | UPDATE_CREDENTIAL | VIEW_CONNECTION_SECRETS |
-  // VIEW_SERVICE_CREDENTIAL
+  // VIEW_SERVICE_CREDENTIAL | VIEW_BOT_TOKEN
   action       String
   source       String // UI | MCP
   teamId       String?  @db.Uuid
@@ -482,7 +482,7 @@ model AuditLog {
   connectionId String?  @db.Uuid
   ip           String?
   userAgent    String?
-  // Extra context. VIEW_SERVICE_CREDENTIAL: { serviceConnectionId, connectionId }.
+  // Extra context. VIEW_SERVICE_CREDENTIAL: { serviceConnectionId, type }. VIEW_BOT_TOKEN: { botId }.
   details      Json?    @db.JsonB
 
   @@index([teamId, ts])

@@ -139,8 +139,8 @@ export function buildMcpHandler(
   const botIds = opts.botIds ?? [];
   const hasBots = botIds.length > 0;
   const serviceConnections = opts.serviceConnections ?? [];
-  const hasApiCredentials = hasVaults || serviceConnections.length > 0;
-  const apiCredentialSources = { vaultFilter: hasVaults ? vaultFilter : undefined, serviceConnections };
+  const hasApiCredentials = hasVaults || serviceConnections.length > 0 || hasBots;
+  const apiCredentialSources = { vaultFilter: hasVaults ? vaultFilter : undefined, serviceConnections, botIds };
   // State tools on every bundle; state is kept per bundle.
   const scopeId = opts.scopeId;
   // The team this endpoint serves, autodetected from the route. Both the root

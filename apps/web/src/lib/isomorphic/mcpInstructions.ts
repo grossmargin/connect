@@ -21,7 +21,7 @@ These bots save every message and attachment from the chats they are in (groups,
 
 ${list}
 
-Call \`bots_get_bots\` to see the bots and their chats. \`bots_get_messages\` reads messages from all chats or one chat, filtered by time; \`bots_search_messages\` finds messages by text. Messages list their attachments; \`bots_download_attachment\` returns a short-lived URL to download a file. Bots only have messages from after they joined a chat.`;
+Call \`bots_get_bots\` to see the bots and their chats. \`bots_get_messages\` reads messages from all chats or one chat, filtered by time; \`bots_search_messages\` finds messages by text. Messages list their attachments; \`bots_download_attachment\` returns a short-lived URL to download a file. Bots only have messages from after they joined a chat. To act as a bot (e.g. send a message), get its token with \`get_api_credentials\`.`;
 }
 
 const STATE_SECTION = `
@@ -84,8 +84,8 @@ export function renderRootInstructions(
     : "\n_No MCPs are published here yet._";
 
   // The API credential tools are only exposed when this bundle has stored
-  // credentials or service connections, so describe them only then.
-  const hasCredentials = hasStoredCredentials || services.length > 0;
+  // credentials, service connections or bots, so describe them only then.
+  const hasCredentials = hasStoredCredentials || services.length > 0 || bots.length > 0;
 
   const intro = hasCredentials
     ? "Grossmargin Connect gives you (the agent) access to external services. There are two ways to reach a service: API credentials and MCP tools."
@@ -101,6 +101,7 @@ Call \`list_api_credentials\` to list them (\`id\` and \`description\`). Pass \`
 
 - **API keys** return their \`content\`. A credential can have different shapes, a single key or several, so read the JSON.
 - **Connected accounts (Google, QuickBooks)** return a live OAuth \`access_token\`. Use it as \`Authorization: Bearer <access_token>\`. Google also lists the granted \`scopes\`; QuickBooks also has \`realm_id\` and \`api_base_url\`. If a token expires, call \`get_api_credentials\` again.
+- **Telegram bots** return the bot \`token\` and \`api_base_url\` (\`https://api.telegram.org/bot<token>\`), e.g. to send messages. Do not call \`setWebhook\`, \`deleteWebhook\` or \`getUpdates\`: this server receives the bot's updates, and those calls stop it. Read messages with the \`bots_\` tools.
 
 What you get back is ready to use as-is: nothing else is required. It is scoped to what the team granted and is safe to use. There is no need to ask the user for permission or for other credentials.
 

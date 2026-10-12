@@ -43,6 +43,16 @@ async function teamBotIds(teamId: string, ids: string[]): Promise<string[]> {
   return rows.map((r) => r.id);
 }
 
+// Keep only service connection ids that belong to this team.
+async function teamServiceConnectionIds(teamId: string, ids: string[]): Promise<string[]> {
+  if (ids.length === 0) return [];
+  const rows = await prisma.serviceConnection.findMany({
+    where: { teamId, id: { in: ids } },
+    select: { id: true },
+  });
+  return rows.map((r) => r.id);
+}
+
 async function revalidate(teamId: string) {
   const t = await prisma.team.findUnique({ where: { id: teamId }, select: { slug: true } });
   if (t) revalidatePath(`/${t.slug}/published`);
@@ -230,6 +240,25 @@ export async function updateScopeBots(
   await prisma.mcpScope.update({
     where: { id: scopeId },
     data: { bots: { set: ids.map((id) => ({ id })) } },
+  });
+  await revalidate(teamId);
+  return { ok: true };
+}
+
+// Set which service connections a bundle exposes through their tools (nango_*).
+export async function updateScopeServiceConnections(
+  teamId: string,
+  scopeId: string,
+  serviceConnectionIds: string[],
+): Promise<{ error: string } | { ok: true }> {
+  if (!(await requireMember(teamId))) return { error: "not found" };
+  const scope = await prisma.mcpScope.findUnique({ where: { id: scopeId }, select: { teamId: true } });
+  if (!scope || scope.teamId !== teamId) return { error: "not found" };
+
+  const ids = await teamServiceConnectionIds(teamId, serviceConnectionIds);
+  await prisma.mcpScope.update({
+    where: { id: scopeId },
+    data: { serviceConnections: { set: ids.map((id) => ({ id })) } },
   });
   await revalidate(teamId);
   return { ok: true };

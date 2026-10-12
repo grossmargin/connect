@@ -4,6 +4,17 @@ export type ConnSummary = { name: string; slug: string };
 export type VaultSummary = { name: string; description?: string | null };
 export type WrapperSummary = { name: string; slug: string; type: string };
 export type BotSummary = { name: string; platform: string; username?: string | null; description?: string | null };
+export type ServiceSummary = { name: string; type: string };
+
+function servicesSection(services: ServiceSummary[]): string {
+  const nango = services.filter((s) => s.type === "nango");
+  if (!nango.length) return "";
+  return `
+
+## Connected accounts (Nango)
+
+Call \`nango_list_connections\` to list the connected accounts, then \`nango_get_credentials\` with a \`connection_id\` to get live credentials (an access token, API key or similar, plus config such as a QuickBooks realmId). Tokens come back fresh; get them again when they expire.`;
+}
 
 function botsSection(bots: BotSummary[]): string {
   if (!bots.length) return "";
@@ -83,6 +94,7 @@ export function renderRootInstructions(
   vaults: VaultSummary[] = [],
   wrappers: WrapperSummary[] = [],
   bots: BotSummary[] = [],
+  services: ServiceSummary[] = [],
 ): string {
   const members = [...connections.map(connSection), ...groups.map(groupSection)];
   const sections = members.length
@@ -128,6 +140,6 @@ ${credentialsSection}
 ## MCP tools
 
 Each published MCP contributes tools under its own \`<id>__\` prefix. An individual MCP is called directly; a **group** bundles several accounts (tenants) behind one prefix and needs a \`tenant\` argument to pick the account.${credentialsNote}
-${sections}${wrappersSection(wrappers)}${botsSection(bots)}${STATE_SECTION}
+${sections}${wrappersSection(wrappers)}${botsSection(bots)}${servicesSection(services)}${STATE_SECTION}
 `;
 }

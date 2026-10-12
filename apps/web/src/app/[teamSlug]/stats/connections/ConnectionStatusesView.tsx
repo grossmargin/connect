@@ -8,7 +8,7 @@ import type { ColumnsType } from "antd/es/table";
 import { ReloadOutlined } from "@ant-design/icons";
 import { Page, PageIntro } from "@/ui/components/Page";
 import { StatusPill, type Tone } from "@/ui/components/StatusPill";
-import type { HealthStatus, McpHealth, NangoHealth, TeamHealth } from "@/lib/server/connectionHealth";
+import type { HealthStatus, McpHealth, NangoHealth, ServiceHealth, TeamHealth } from "@/lib/server/connectionHealth";
 
 const STATUS: Record<HealthStatus, { tone: Tone; label: string }> = {
   ok: { tone: "success", label: "OK" },
@@ -61,6 +61,26 @@ export function ConnectionStatusesView({ teamSlug, health }: { teamSlug: string;
     { title: "Error", dataIndex: "error", render: errorCell },
   ];
 
+  const serviceColumns: ColumnsType<ServiceHealth> = [
+    {
+      title: "Connection",
+      dataIndex: "name",
+      render: (name: string, row) => (
+        <div className="leading-tight">
+          <Link href={`/${teamSlug}/service-connections`} className="font-medium">
+            {name}
+          </Link>
+          <div className="text-xs text-gray-400">
+            {row.type} · {row.slug}
+          </div>
+        </div>
+      ),
+    },
+    { title: "Status", dataIndex: "status", width: 130, render: statusCell },
+    { title: "Result", dataIndex: "summary", width: 140, render: (s?: string) => s ?? "—" },
+    { title: "Error", dataIndex: "error", render: errorCell },
+  ];
+
   const nangoColumns: ColumnsType<NangoHealth> = [
     {
       title: "Credential",
@@ -84,7 +104,7 @@ export function ConnectionStatusesView({ teamSlug, health }: { teamSlug: string;
     <Page breadcrumb={[{ title: "Team Stats", href: `/${teamSlug}/stats` }, { title: "Connection Statuses" }]}>
       <PageIntro
         title="Connection Statuses"
-        description={`Live test of every MCP connection and Nango credential. Ran at ${new Date(health.checkedAt).toLocaleString()}.`}
+        description={`Live test of every MCP connection, service connection and Nango credential. Ran at ${new Date(health.checkedAt).toLocaleString()}.`}
         action={
           <Button icon={<ReloadOutlined />} loading={pending} onClick={() => start(() => router.refresh())}>
             Re-test
@@ -94,6 +114,9 @@ export function ConnectionStatusesView({ teamSlug, health }: { teamSlug: string;
       <div className="flex flex-col gap-6">
         <Card size="small" title="MCP connections" extra={summary(health.mcp)}>
           <Table rowKey="id" size="small" pagination={false} columns={mcpColumns} dataSource={health.mcp} />
+        </Card>
+        <Card size="small" title="Service connections" extra={summary(health.services)}>
+          <Table rowKey="id" size="small" pagination={false} columns={serviceColumns} dataSource={health.services} />
         </Card>
         <Card size="small" title="Nango credentials" extra={summary(health.nango)}>
           <Table rowKey="id" size="small" pagination={false} columns={nangoColumns} dataSource={health.nango} />

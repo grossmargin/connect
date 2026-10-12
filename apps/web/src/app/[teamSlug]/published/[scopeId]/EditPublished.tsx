@@ -4,6 +4,7 @@ import { App, Button, Card, Form, Input, List, Modal, Popconfirm, Radio, Select,
 import {
   ApiOutlined,
   AppstoreOutlined,
+  CloudServerOutlined,
   DeleteOutlined,
   EditOutlined,
   LockOutlined,
@@ -16,6 +17,7 @@ import {
   updateScope,
   updateScopeVaults,
   updateScopeBots,
+  updateScopeServiceConnections,
   deleteScope,
   addScopeConnections,
   removeScopeConnection,
@@ -32,6 +34,7 @@ import { MemoryCard, type StateRow } from "./MemoryCard";
 export type ConnOption = { id: string; name: string; slug: string };
 export type VaultOption = { id: string; name: string };
 export type BotOption = { id: string; name: string; username: string | null };
+export type ServiceOption = { id: string; name: string; slug: string; type: string };
 export type GroupData = { id: string; name: string; slug: string; tenantIds: string[] };
 type Scope = { id: string; name: string; slug: string; isDefault: boolean };
 type VaultMode = "ALL" | "LIST";
@@ -46,6 +49,8 @@ export function EditPublished({
   selectedVaultIds,
   allBots,
   selectedBotIds,
+  allServiceConnections,
+  selectedServiceConnectionIds,
   states,
 }: {
   scope: Scope;
@@ -57,6 +62,8 @@ export function EditPublished({
   selectedVaultIds: string[];
   allBots: BotOption[];
   selectedBotIds: string[];
+  allServiceConnections: ServiceOption[];
+  selectedServiceConnectionIds: string[];
   states: StateRow[];
 }) {
   const router = useRouter();
@@ -175,6 +182,12 @@ export function EditPublished({
           />
 
           <BotsCard scopeId={scope.id} allBots={allBots} initialSelected={selectedBotIds} />
+
+          <ServiceConnectionsCard
+            scopeId={scope.id}
+            all={allServiceConnections}
+            initialSelected={selectedServiceConnectionIds}
+          />
 
           <Card
             title="Individual MCPs"
@@ -620,6 +633,68 @@ export function EditPublished({
               }))}
               optionFilterProp="label"
               suffixIcon={<RobotOutlined />}
+            />
+            <div className="mt-3 flex gap-2">
+              <Button type="primary" loading={pending} disabled={!dirty} onClick={save}>
+                Save changes
+              </Button>
+              <Button disabled={!dirty} onClick={() => setIds(initialSelected)}>
+                Cancel
+              </Button>
+            </div>
+          </>
+        )}
+      </Card>
+    );
+  }
+  function ServiceConnectionsCard({
+    scopeId,
+    all,
+    initialSelected,
+  }: {
+    scopeId: string;
+    all: ServiceOption[];
+    initialSelected: string[];
+  }) {
+    const [ids, setIds] = useState<string[]>(initialSelected);
+    const [pending, start] = useTransition();
+
+    const dirty = ids.length !== initialSelected.length || ids.some((id) => !initialSelected.includes(id));
+
+    const save = () =>
+      start(async () => {
+        const r = await updateScopeServiceConnections(teamId, scopeId, ids);
+        if ("error" in r) {
+          message.error(r.error);
+          return;
+        }
+        message.success("Saved");
+        router.refresh();
+      });
+
+    return (
+      <Card title="Service Connections">
+        <Typography.Paragraph type="secondary" className="!mt-0 !text-sm">
+          Nango connections add the <Typography.Text code>nango_list_connections</Typography.Text> and{" "}
+          <Typography.Text code>nango_get_credentials</Typography.Text> tools. They list the accounts of every
+          picked connection together.
+        </Typography.Paragraph>
+
+        {all.length === 0 ? (
+          <Typography.Text type="secondary" className="!text-sm">
+            This team has no service connections yet.
+          </Typography.Text>
+        ) : (
+          <>
+            <Select
+              mode="multiple"
+              value={ids}
+              onChange={setIds}
+              className="w-full"
+              placeholder="Pick service connections to expose"
+              options={all.map((c) => ({ value: c.id, label: `${c.name} — ${c.type} · ${c.slug}` }))}
+              optionFilterProp="label"
+              suffixIcon={<CloudServerOutlined />}
             />
             <div className="mt-3 flex gap-2">
               <Button type="primary" loading={pending} disabled={!dirty} onClick={save}>

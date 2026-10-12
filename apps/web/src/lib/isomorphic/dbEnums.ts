@@ -23,5 +23,6 @@ export const AUDIT_ACTIONS = [
   "UPDATE_CREDENTIAL",
   "DELETE_CREDENTIAL",
   "VIEW_CONNECTION_SECRETS",
+  "VIEW_SERVICE_CREDENTIAL",
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

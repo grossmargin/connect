@@ -85,18 +85,19 @@ model Team {
   slug      String   @unique
   createdAt DateTime @default(now())
 
-  memberships     TeamMembership[]
-  invitations     TeamInvitation[]
-  vaults          Vault[]
-  serviceAccounts ServiceAccount[]
-  mcpConnections  McpConnection[]
-  mcpToolsets     McpToolset[]
-  mcpWrappers     McpWrapper[]
-  mcpScopes       McpScope[]
-  mcpGroups       McpGroup[]
-  kvEntries       KeyValueStore[]
-  bots            Bot[]
-  agents          Agent[]
+  memberships        TeamMembership[]
+  invitations        TeamInvitation[]
+  vaults             Vault[]
+  serviceAccounts    ServiceAccount[]
+  mcpConnections     McpConnection[]
+  mcpToolsets        McpToolset[]
+  mcpWrappers        McpWrapper[]
+  mcpScopes          McpScope[]
+  mcpGroups          McpGroup[]
+  kvEntries          KeyValueStore[]
+  bots               Bot[]
+  agents             Agent[]
+  serviceConnections ServiceConnection[]
 }
 
 // An invitation to join a team. `code` is the secret in the invite link; email
@@ -139,22 +140,24 @@ model McpScope {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  team        Team            @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  team               Team                @relation(fields: [teamId], references: [id], onDelete: Cascade)
   // Individual member MCPs (tools prefixed with the connection slug).
-  connections McpConnection[] @relation("McpScopeConnections")
+  connections        McpConnection[]     @relation("McpScopeConnections")
   // Vault selection. Meaning depends on `vaultMode`: exceptions when ALL,
   // the allow-list when LIST.
-  vaults      Vault[]         @relation("McpScopeVaults")
+  vaults             Vault[]             @relation("McpScopeVaults")
   // Tenanted groups (tools prefixed with the group slug + a `tenant` argument).
-  groups      McpGroup[]
+  groups             McpGroup[]
   // DEPRECATED: federated toolsets. Frozen — kept for data migration, no longer read.
-  toolsets    McpToolset[]    @relation("McpScopeToolsets")
+  toolsets           McpToolset[]        @relation("McpScopeToolsets")
   // Bots whose saved messages this bundle exposes through the bots_ tools.
-  bots        Bot[]           @relation("McpScopeBots")
+  bots               Bot[]               @relation("McpScopeBots")
+  // Service connections this bundle exposes through per-type tools (nango_*).
+  serviceConnections ServiceConnection[] @relation("McpScopeServiceConnections")
   // Agents that use this bundle.
-  agents      Agent[]         @relation("AgentScopes")
+  agents             Agent[]             @relation("AgentScopes")
   // State saved by the bundle's callers through the state_ tools.
-  states      BundleState[]
+  states             BundleState[]
 
   @@unique([teamId, slug])
   @@index([teamId])
@@ -330,6 +333,39 @@ model McpConnection {
   @@index([teamId])
 }
 
+// A connection to a known service (not an MCP server), e.g. one Nango
+// environment. A team can have several connections of one type. Fields are
+// defined per type in lib/isomorphic/serviceConnectionTypes.ts: non-secret
+// fields go to `config`, fields marked secret go to the encrypted `secrets`.
+model ServiceConnection {
+  id      String @id @default(uuid()) @db.Uuid
+  teamId  String @db.Uuid
+  name    String
+  // User-facing id, unique per team. Letters, digits, underscore only.
+  slug    String
+  // nango. A plain string so adding a type needs no schema migration.
+  type    String
+  // Non-secret fields, e.g. { host }.
+  config  Json   @default("{}") @db.JsonB
+  // Encrypted JSON of the secret fields, e.g. { secretKey }.
+  secrets Bytes?
+
+  // Last test result (manual Test or the hourly health check).
+  lastTestOk    Boolean?
+  lastTestError String?
+  lastTestedAt  DateTime?
+
+  createdById String?  @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  team   Team       @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  scopes McpScope[] @relation("McpScopeServiceConnections")
+
+  @@unique([teamId, slug])
+  @@index([teamId])
+}
+
 // One row per connection test. `details` is free-form: as much as we can capture
 // (url, tools, instructions preview, timings, error, refresh info, ...).
 model ConnectionTestLog {
@@ -436,7 +472,8 @@ model AuditLog {
   ts           DateTime @default(now())
   actorType    String // USER | SERVICE_ACCOUNT
   actorId      String   @db.Uuid
-  // VIEW_CREDENTIAL | CREATE_CREDENTIAL | UPDATE_CREDENTIAL | VIEW_CONNECTION_SECRETS
+  // VIEW_CREDENTIAL | CREATE_CREDENTIAL | UPDATE_CREDENTIAL | VIEW_CONNECTION_SECRETS |
+  // VIEW_SERVICE_CREDENTIAL
   action       String
   source       String // UI | MCP
   teamId       String?  @db.Uuid
@@ -445,6 +482,8 @@ model AuditLog {
   connectionId String?  @db.Uuid
   ip           String?
   userAgent    String?
+  // Extra context. VIEW_SERVICE_CREDENTIAL: { serviceConnectionId, connectionId }.
+  details      Json?    @db.JsonB
 
   @@index([teamId, ts])
   @@index([credentialId])

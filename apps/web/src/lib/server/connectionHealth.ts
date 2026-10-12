@@ -1,12 +1,13 @@
 import "server-only";
-import type { McpConnection, Prisma } from "@prisma/client";
+import type { McpConnection, Prisma, ServiceConnection } from "@prisma/client";
 import { prisma } from "@/lib/server/db";
 import { readCredentials } from "@/lib/server/mcpCredentials";
 import { probeConn } from "@/lib/server/upstream";
 import type { ToolInfo } from "@/lib/server/mcpClient";
 import { fetchNangoToken, parseNangoRef } from "@/lib/server/nango";
+import { testServiceConnection } from "@/lib/server/serviceConnections";
 
-// Live health checks for MCP connections and NANGO credentials. Used by the
+// Live health checks for MCP connections, service connections and NANGO credentials. Used by the
 // hourly cron and the Connection Statuses page.
 
 const CHECK_TIMEOUT_MS = 30_000;
@@ -38,7 +39,24 @@ export type NangoHealth = {
   durationMs: number;
 };
 
-export type TeamHealth = { teamId: string; mcp: McpHealth[]; nango: NangoHealth[]; checkedAt: string };
+export type ServiceHealth = {
+  id: string;
+  name: string;
+  slug: string;
+  type: string;
+  status: HealthStatus;
+  summary?: string;
+  error?: string;
+  durationMs: number;
+};
+
+export type TeamHealth = {
+  teamId: string;
+  mcp: McpHealth[];
+  services: ServiceHealth[];
+  nango: NangoHealth[];
+  checkedAt: string;
+};
 
 function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : "Unexpected error";
@@ -161,19 +179,35 @@ async function checkNango(cred: NangoCred): Promise<NangoHealth> {
   }
 }
 
+// Calls the service with the stored config. The result is saved on the row.
+async function checkService(conn: ServiceConnection): Promise<ServiceHealth> {
+  const base = { id: conn.id, name: conn.name, slug: conn.slug, type: conn.type };
+  const startedAt = Date.now();
+  const r = await testServiceConnection(conn);
+  const durationMs = Date.now() - startedAt;
+  return r.ok
+    ? { ...base, status: "ok", summary: r.summary, durationMs }
+    : { ...base, status: "error", error: r.error, durationMs };
+}
+
 const nangoCredSelect = { id: true, name: true, credentialRef: true, vault: { select: { id: true, name: true } } };
 
 export async function checkTeamHealth(teamId: string): Promise<TeamHealth> {
-  const [conns, creds] = await Promise.all([
+  const [conns, serviceConns, creds] = await Promise.all([
     prisma.mcpConnection.findMany({ where: { teamId }, orderBy: { name: "asc" } }),
+    prisma.serviceConnection.findMany({ where: { teamId }, orderBy: { name: "asc" } }),
     prisma.credential.findMany({
       where: { type: "NANGO", vault: { teamId } },
       select: nangoCredSelect,
       orderBy: { name: "asc" },
     }),
   ]);
-  const [mcp, nango] = await Promise.all([mapLimit(conns, CONCURRENCY, checkMcp), mapLimit(creds, CONCURRENCY, checkNango)]);
-  return { teamId, mcp, nango, checkedAt: new Date().toISOString() };
+  const [mcp, services, nango] = await Promise.all([
+    mapLimit(conns, CONCURRENCY, checkMcp),
+    mapLimit(serviceConns, CONCURRENCY, checkService),
+    mapLimit(creds, CONCURRENCY, checkNango),
+  ]);
+  return { teamId, mcp, services, nango, checkedAt: new Date().toISOString() };
 }
 
 // Checks every team. Teams run one after another; items inside a team run in parallel.

@@ -37,7 +37,7 @@ import {
   listAllPrompts,
   handlePromptGet,
 } from "@/lib/server/publishedResourcesPrompts";
-import type { McpConnection } from "@prisma/client";
+import type { McpConnection, ServiceConnection } from "@prisma/client";
 import {
   wrapperOwns,
   wrapperToolDefs,
@@ -46,6 +46,7 @@ import {
 } from "@/lib/server/wrapperTools";
 import { BOT_TOOLS, BOT_TOOL_NAMES, runBotTool } from "@/lib/server/botTools";
 import { STATE_TOOLS, STATE_TOOL_NAMES, runStateTool } from "@/lib/server/stateTools";
+import { NANGO_TOOLS, NANGO_TOOL_NAMES, runNangoTool } from "@/lib/server/serviceTools";
 import { requestOrigin } from "@/lib/server/serverEnv";
 
 function principalFrom(extra: { authInfo?: AuthInfo }): Principal {
@@ -167,7 +168,14 @@ export function buildMcpHandler(
   connections: McpConnection[] = [],
   wrappers: WrapperWithCredentials[] = [],
   instructions?: string,
-  opts: { endpoint?: string; teamScope?: string; vaultFilter?: VaultFilter; botIds?: string[]; scopeId?: string } = {},
+  opts: {
+    endpoint?: string;
+    teamScope?: string;
+    vaultFilter?: VaultFilter;
+    botIds?: string[];
+    scopeId?: string;
+    serviceConnections?: ServiceConnection[];
+  } = {},
 ) {
   const endpoint = opts.endpoint ?? "/";
   const vaultFilter = opts.vaultFilter;
@@ -177,6 +185,9 @@ export function buildMcpHandler(
   // Bot tools only when the bundle exposes at least one bot.
   const botIds = opts.botIds ?? [];
   const hasBots = botIds.length > 0;
+  // Nango tools only when the bundle has at least one Nango service connection.
+  const serviceConnections = opts.serviceConnections ?? [];
+  const hasNango = serviceConnections.some((c) => c.type === "nango");
   // State tools on every bundle; state is kept per bundle.
   const scopeId = opts.scopeId;
   // The team this endpoint serves, autodetected from the route. Both the root
@@ -196,6 +207,7 @@ export function buildMcpHandler(
           tools: [
             ...(hasVaults ? CREDENTIAL_TOOLS : []),
             ...(hasBots ? BOT_TOOLS : []),
+            ...(hasNango ? NANGO_TOOLS : []),
             ...(scopeId ? STATE_TOOLS : []),
             STATUS_TOOL,
             ...perGroup.flat(),
@@ -247,6 +259,40 @@ export function buildMcpHandler(
               teamId,
               toolName: name,
               args: name === "view_credential" ? { credentialId: args.credentialId } : args,
+              ok: !result.isError,
+              error: result.isError ? resultText(result) : null,
+              durationMs: Date.now() - started,
+              details: callDetails(headers, result.isError ? resultText(result) : undefined),
+            });
+            return result;
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : "call failed";
+            await logMcpCall(principal, {
+              source: "root",
+              teamId,
+              toolName: name,
+              args,
+              ok: false,
+              error: msg,
+              durationMs: Date.now() - started,
+              details: callDetails(headers, e),
+            });
+            return errorResult(msg);
+          }
+        }
+
+        if (hasNango && NANGO_TOOL_NAMES.has(name)) {
+          try {
+            const result = await runNangoTool(serviceConnections, name, args, {
+              principal,
+              ip: headerValue(headers, "x-forwarded-for") ?? null,
+              userAgent: headerValue(headers, "user-agent") ?? null,
+            });
+            await logMcpCall(principal, {
+              source: "root",
+              teamId,
+              toolName: name,
+              args,
               ok: !result.isError,
               error: result.isError ? resultText(result) : null,
               durationMs: Date.now() - started,

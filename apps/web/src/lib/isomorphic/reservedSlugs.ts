@@ -30,6 +30,7 @@ export function isReservedSlug(slug: string): boolean {
 export const TEAM_SUBROUTES = new Set([
   "vaults",
   "mcp-connections",
+  "service-connections",
   "published",
   "settings",
   "bots",

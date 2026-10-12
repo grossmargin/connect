@@ -7,6 +7,7 @@ import {
   BarChartOutlined,
   HeartOutlined,
   CheckOutlined,
+  CloudServerOutlined,
   DownOutlined,
   FolderOutlined,
   LogoutOutlined,
@@ -31,7 +32,7 @@ export type TeamOption = { id: string; name: string; slug: string };
 const { Sider, Content } = Layout;
 
 // Sections with detail pages; the nav item stays selected on them.
-const SECTIONS = ["mcp-connections", "published", "bots", "agents"];
+const SECTIONS = ["mcp-connections", "service-connections", "published", "bots", "agents"];
 
 function initials(text: string): string {
   const parts = text.trim().split(/[\s@.]+/).filter(Boolean);
@@ -64,7 +65,7 @@ export function AppShell({
   teams?: TeamOption[];
   userName?: string | null;
   email?: string | null;
-  counts: { connections: number; scopes: number; bots: number; agents: number };
+  counts: { connections: number; serviceConnections: number; scopes: number; bots: number; agents: number };
   isAdmin?: boolean;
   children: React.ReactNode;
 }) {
@@ -82,6 +83,15 @@ export function AppShell({
       key: `${base}/mcp-connections`,
       icon: <ApiOutlined />,
       label: <Link href={`${base}/mcp-connections`}>{navLabel("MCP Connections", counts.connections)}</Link>,
+    },
+    {
+      key: `${base}/service-connections`,
+      icon: <CloudServerOutlined />,
+      label: (
+        <Link href={`${base}/service-connections`}>
+          {navLabel("Service Connections", counts.serviceConnections)}
+        </Link>
+      ),
     },
     {
       key: `${base}/published`,

@@ -4,13 +4,15 @@ import { prisma } from "@/lib/server/db";
 // A Published MCP with the members it exposes: individual connections plus
 // tenanted groups (and each group's tenant connections). `vaults` holds the
 // vault selection (allow-list or exceptions, per `vaultMode`). `bots` are the
-// bots whose messages the bundle exposes.
+// bots whose messages the bundle exposes. `serviceConnections` feed the
+// per-type tools (nango_*).
 export type ScopeWithMembers = Prisma.McpScopeGetPayload<{
   include: {
     connections: true;
     groups: { include: { tenants: true } };
     vaults: { select: { id: true } };
     bots: { select: { id: true; name: true; username: true; platform: true; description: true } };
+    serviceConnections: true;
   };
 }>;
 
@@ -19,6 +21,7 @@ const DEFAULT_INCLUDE = {
   groups: { include: { tenants: true } },
   vaults: { select: { id: true } },
   bots: { select: { id: true, name: true, username: true, platform: true, description: true } },
+  serviceConnections: { orderBy: { name: "asc" } },
 } as const;
 
 // The team's default Published MCP (served at the team root). Created empty on

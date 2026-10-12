@@ -102,7 +102,7 @@ export function PublishedList({ scopes }: { scopes: ScopeRow[] }) {
     <Page breadcrumb={[{ title: "Bundled MCPs" }]}>
       <PageIntro
         title="Bundled MCPs"
-        description="Each bundle is an endpoint that exposes its member MCPs and a selection of vaults. The default one is served at your team root; named ones at /team/<id>."
+        description="Each bundle is an endpoint that exposes its member MCPs and, optionally, the team credentials. The default one is served at your team root; named ones at /team/<id>."
         action={
           <Button
             type="primary"

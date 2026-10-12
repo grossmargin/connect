@@ -43,28 +43,9 @@ async function resolveOAuthUser(token: string): Promise<Principal | null> {
 
 // ---------- Tool data ----------
 
-// Restricts credential tools to a set of vaults (the bundle's selection). When
-// omitted, every vault the principal can reach is in scope.
+// Restricts credential tools to a set of vaults. Vaults are not shown anywhere;
+// a bundle passes every team vault when it exposes credentials.
 export type VaultFilter = { allowedVaultIds: string[] };
-
-function vaultWhere(filter?: VaultFilter) {
-  return filter ? { id: { in: filter.allowedVaultIds } } : {};
-}
-
-export async function getVaults(p: Principal, filter?: VaultFilter) {
-  const vaults = await prisma.vault.findMany({
-    where: { teamId: { in: p.teamIds }, ...vaultWhere(filter) },
-    include: { team: { select: { name: true } } },
-    orderBy: { name: "asc" },
-  });
-  return vaults.map((v) => ({
-    id: v.id,
-    name: v.name,
-    description: v.description,
-    teamId: v.teamId,
-    teamName: v.team.name,
-  }));
-}
 
 export async function getCredentials(p: Principal, vaultId?: string, filter?: VaultFilter) {
   // Both narrow by vault: `vaultId` picks one, `filter` limits to the bundle's

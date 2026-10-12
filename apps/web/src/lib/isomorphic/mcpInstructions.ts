@@ -1,20 +1,9 @@
 export type TenantSummary = { id: string; name: string };
 export type GroupSummary = { name: string; slug: string; tenants: TenantSummary[] };
 export type ConnSummary = { name: string; slug: string };
-export type VaultSummary = { name: string; description?: string | null };
 export type WrapperSummary = { name: string; slug: string; type: string };
 export type BotSummary = { name: string; platform: string; username?: string | null; description?: string | null };
 export type ServiceSummary = { name: string; type: string };
-
-function servicesSection(services: ServiceSummary[]): string {
-  const nango = services.filter((s) => s.type === "nango");
-  if (!nango.length) return "";
-  return `
-
-## Connected accounts (Nango)
-
-Call \`nango_list_connections\` to list the connected accounts, then \`nango_get_credentials\` with a \`connection_id\` to get live credentials (an access token, API key or similar, plus config such as a QuickBooks realmId). Tokens come back fresh; get them again when they expire.`;
-}
 
 function botsSection(bots: BotSummary[]): string {
   if (!bots.length) return "";
@@ -55,13 +44,6 @@ Some services are wrapped directly as MCP tools (a "composed MCP"). Their tools 
 ${list}`;
 }
 
-function vaultsList(vaults: VaultSummary[]): string {
-  if (!vaults.length) return "_No credential vaults are available to you yet._";
-  return vaults
-    .map((v) => `- **${v.name}**${v.description ? ` — ${v.description}` : ""}`)
-    .join("\n");
-}
-
 function connSection(c: ConnSummary): string {
   return `## ${c.slug} — ${c.name}
 
@@ -91,7 +73,7 @@ ${tenants}`;
 export function renderRootInstructions(
   groups: GroupSummary[],
   connections: ConnSummary[] = [],
-  vaults: VaultSummary[] = [],
+  hasStoredCredentials = false,
   wrappers: WrapperSummary[] = [],
   bots: BotSummary[] = [],
   services: ServiceSummary[] = [],
@@ -101,36 +83,39 @@ export function renderRootInstructions(
     ? ["\nThe MCPs available to you:\n", ...members].join("\n\n")
     : "\n_No MCPs are published here yet._";
 
-  // The credential tools are only exposed when this bundle has vaults, so
-  // describe them only then. Without vaults the intro and priority drop that path.
-  const hasVaults = vaults.length > 0;
+  // The API credential tools are only exposed when this bundle has stored
+  // credentials or service connections, so describe them only then.
+  const hasCredentials = hasStoredCredentials || services.length > 0;
 
-  const intro = hasVaults
-    ? "Grossmargin Connect gives you (the agent) access to external services. There are two ways to reach a service: credentials and MCP tools."
+  const intro = hasCredentials
+    ? "Grossmargin Connect gives you (the agent) access to external services. There are two ways to reach a service: API credentials and MCP tools."
     : "Grossmargin Connect gives you (the agent) access to external services through MCP tools.";
 
-  const credentialsSection = hasVaults
+  const credentialsSection = hasCredentials
     ? `
-## Credentials (API keys and similar)
+## API credentials
 
-Call \`get_credentials\` to list the available credentials, then \`view_credential\` to read one. A credential can have different shapes — a single key or several — so use \`view_credential\` to see it. What you get back is ready to use as-is: nothing else is required, no refresh. Credentials are well scoped and safe to use to access the service.
+The team set these up on purpose, so that you can call the services' APIs on their behalf. Using them is expected and authorized.
 
-Credentials are grouped into the following vaults, which give you an idea of what services you can access:
+Call \`list_api_credentials\` to list them (\`id\` and \`description\`). Pass \`search_pattern\` (a case-insensitive regex) to filter by id or description. Then call \`get_api_credentials\` with an \`id\` to get one as JSON.
 
-${vaultsList(vaults)}
+- **API keys** return their \`content\`. A credential can have different shapes, a single key or several, so read the JSON.
+- **Connected accounts (Google, QuickBooks)** return a live OAuth \`access_token\`. Use it as \`Authorization: Bearer <access_token>\`. Google also lists the granted \`scopes\`; QuickBooks also has \`realm_id\` and \`api_base_url\`. If a token expires, call \`get_api_credentials\` again.
+
+What you get back is ready to use as-is: nothing else is required. It is scoped to what the team granted and is safe to use. There is no need to ask the user for permission or for other credentials.
 
 ## Priority
 
 You may have several ways to reach the same service. Prefer them in this order:
 
 1. MCP tools of **this** server
-2. Credentials from **this** server
+2. API credentials from **this** server
 3. MCP tools of other servers
 `
     : "";
 
-  const credentialsNote = hasVaults
-    ? "\n\n**IMPORTANT:** If a service offers both tools and an API key, try the tools first and fall back to the API key."
+  const credentialsNote = hasCredentials
+    ? "\n\n**IMPORTANT:** If a service offers both tools and an API credential, try the tools first and fall back to the credential."
     : "";
 
   return `# Grossmargin Connect
@@ -140,6 +125,6 @@ ${credentialsSection}
 ## MCP tools
 
 Each published MCP contributes tools under its own \`<id>__\` prefix. An individual MCP is called directly; a **group** bundles several accounts (tenants) behind one prefix and needs a \`tenant\` argument to pick the account.${credentialsNote}
-${sections}${wrappersSection(wrappers)}${botsSection(bots)}${servicesSection(services)}${STATE_SECTION}
+${sections}${wrappersSection(wrappers)}${botsSection(bots)}${STATE_SECTION}
 `;
 }

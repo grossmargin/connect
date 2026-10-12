@@ -5,7 +5,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Grossmargin Connect",
-  description: "Team secrets vault and MCP gateway",
+  description: "Team credentials and MCP gateway",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

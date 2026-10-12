@@ -9,7 +9,7 @@ import {
   CheckOutlined,
   CloudServerOutlined,
   DownOutlined,
-  FolderOutlined,
+  KeyOutlined,
   LogoutOutlined,
   PlusOutlined,
   RobotOutlined,
@@ -75,10 +75,10 @@ export function AppShell({
   const [, start] = useTransition();
   const [newTeamOpen, setNewTeamOpen] = useState(false);
 
-  const vaultsActive = pathname === base || pathname.startsWith(`${base}/vaults`);
+  const credentialsActive = pathname === base || pathname.startsWith(`${base}/vaults`);
 
   const items: MenuProps["items"] = [
-    { key: base, icon: <FolderOutlined />, label: <Link href={base}>{navLabel("Vaults")}</Link> },
+    { key: base, icon: <KeyOutlined />, label: <Link href={base}>{navLabel("Credentials")}</Link> },
     {
       key: `${base}/mcp-connections`,
       icon: <ApiOutlined />,
@@ -180,7 +180,7 @@ export function AppShell({
             <Menu
               mode="inline"
               theme="light"
-              selectedKeys={[vaultsActive ? base : (SECTIONS.map((s) => `${base}/${s}`).find((k) => pathname.startsWith(k)) ?? pathname)]}
+              selectedKeys={[credentialsActive ? base : (SECTIONS.map((s) => `${base}/${s}`).find((k) => pathname.startsWith(k)) ?? pathname)]}
               items={items}
               className="flex-1 !border-r-0"
             />

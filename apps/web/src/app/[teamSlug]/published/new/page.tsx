@@ -39,7 +39,7 @@ export default function NewPublishedMcpPage() {
       <DetailHeader
         icon={<AppstoreOutlined />}
         title="New bundle"
-        subtitle="An endpoint that exposes a set of member MCPs and vaults"
+        subtitle="An endpoint that exposes a set of member MCPs and credentials"
         backHref={`/${teamSlug}/published`}
         backLabel="All bundled MCPs"
       />

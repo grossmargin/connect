@@ -37,7 +37,7 @@ export function ConsentForm({ clientName, resource, params }: { clientName: stri
           type="error"
           showIcon
           message="This grants read access to secret values"
-          description="With this token the application can list your vaults and reveal the plaintext of any credential in every team you belong to. Every reveal is recorded in the audit log. Only approve tools you trust."
+          description="With this token the application can list and reveal the plaintext of any credential in every team you belong to. Every reveal is recorded in the audit log. Only approve tools you trust."
           className="!mb-4"
         />
 

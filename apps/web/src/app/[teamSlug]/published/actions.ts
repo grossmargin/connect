@@ -23,16 +23,6 @@ async function teamConnectionIds(teamId: string, ids: string[]): Promise<string[
   return rows.map((r) => r.id);
 }
 
-// Keep only vault ids that belong to this team.
-async function teamVaultIds(teamId: string, ids: string[]): Promise<string[]> {
-  if (ids.length === 0) return [];
-  const rows = await prisma.vault.findMany({
-    where: { teamId, id: { in: ids } },
-    select: { id: true },
-  });
-  return rows.map((r) => r.id);
-}
-
 // Keep only bot ids that belong to this team.
 async function teamBotIds(teamId: string, ids: string[]): Promise<string[]> {
   if (ids.length === 0) return [];
@@ -204,23 +194,20 @@ export async function deleteScope(
   return { ok: true };
 }
 
-// Set which vaults a bundle exposes. `mode` is "ALL" (every team vault minus
-// `vaultIds`, i.e. exceptions) or "LIST" (only `vaultIds`).
-export async function updateScopeVaults(
+// Turn the bundle's credentials on (all team credentials) or off. See
+// exposesCredentials in lib/server/scopes.ts for how this is stored.
+export async function updateScopeCredentials(
   teamId: string,
   scopeId: string,
-  mode: "ALL" | "LIST",
-  vaultIds: string[],
+  enabled: boolean,
 ): Promise<{ error: string } | { ok: true }> {
   if (!(await requireMember(teamId))) return { error: "not found" };
   const scope = await prisma.mcpScope.findUnique({ where: { id: scopeId }, select: { teamId: true } });
   if (!scope || scope.teamId !== teamId) return { error: "not found" };
-  if (mode !== "ALL" && mode !== "LIST") return { error: "Invalid mode." };
 
-  const ids = await teamVaultIds(teamId, vaultIds);
   await prisma.mcpScope.update({
     where: { id: scopeId },
-    data: { vaultMode: mode, vaults: { set: ids.map((id) => ({ id })) } },
+    data: { vaultMode: enabled ? "ALL" : "LIST", vaults: { set: [] } },
   });
   await revalidate(teamId);
   return { ok: true };
@@ -245,7 +232,7 @@ export async function updateScopeBots(
   return { ok: true };
 }
 
-// Set which service connections a bundle exposes through their tools (nango_*).
+// Set which service connections a bundle exposes through the API credential tools.
 export async function updateScopeServiceConnections(
   teamId: string,
   scopeId: string,

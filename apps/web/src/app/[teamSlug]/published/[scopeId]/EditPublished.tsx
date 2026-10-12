@@ -1,13 +1,12 @@
 "use client";
 
-import { App, Button, Card, Form, Input, List, Modal, Popconfirm, Radio, Select, Tag, Typography } from "antd";
+import { App, Button, Card, Form, Input, List, Modal, Popconfirm, Select, Switch, Tag, Typography } from "antd";
 import {
   ApiOutlined,
   AppstoreOutlined,
   CloudServerOutlined,
   DeleteOutlined,
   EditOutlined,
-  LockOutlined,
   PlusOutlined,
   RobotOutlined,
 } from "@ant-design/icons";
@@ -15,7 +14,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import {
   updateScope,
-  updateScopeVaults,
+  updateScopeCredentials,
   updateScopeBots,
   updateScopeServiceConnections,
   deleteScope,
@@ -32,21 +31,17 @@ import { useCurrentTeam } from "@/ui/components/TeamContext";
 import { MemoryCard, type StateRow } from "./MemoryCard";
 
 export type ConnOption = { id: string; name: string; slug: string };
-export type VaultOption = { id: string; name: string };
 export type BotOption = { id: string; name: string; username: string | null };
 export type ServiceOption = { id: string; name: string; slug: string; type: string };
 export type GroupData = { id: string; name: string; slug: string; tenantIds: string[] };
 type Scope = { id: string; name: string; slug: string; isDefault: boolean };
-type VaultMode = "ALL" | "LIST";
 
 export function EditPublished({
   scope,
   memberConnectionIds,
   groups,
   allConnections,
-  allVaults,
-  vaultMode,
-  selectedVaultIds,
+  exposeCredentials,
   allBots,
   selectedBotIds,
   allServiceConnections,
@@ -57,9 +52,7 @@ export function EditPublished({
   memberConnectionIds: string[];
   groups: GroupData[];
   allConnections: ConnOption[];
-  allVaults: VaultOption[];
-  vaultMode: VaultMode;
-  selectedVaultIds: string[];
+  exposeCredentials: boolean;
   allBots: BotOption[];
   selectedBotIds: string[];
   allServiceConnections: ServiceOption[];
@@ -174,12 +167,7 @@ export function EditPublished({
             </Card>
           )}
 
-          <VaultsCard
-            scopeId={scope.id}
-            allVaults={allVaults}
-            initialMode={vaultMode}
-            initialSelected={selectedVaultIds}
-          />
+          <CredentialsCard scopeId={scope.id} initial={exposeCredentials} />
 
           <BotsCard scopeId={scope.id} allBots={allBots} initialSelected={selectedBotIds} />
 
@@ -492,29 +480,12 @@ export function EditPublished({
     );
   }
 
-  function VaultsCard({
-    scopeId,
-    allVaults,
-    initialMode,
-    initialSelected,
-  }: {
-    scopeId: string;
-    allVaults: VaultOption[];
-    initialMode: VaultMode;
-    initialSelected: string[];
-  }) {
-    const [mode, setMode] = useState<VaultMode>(initialMode);
-    const [ids, setIds] = useState<string[]>(initialSelected);
+  function CredentialsCard({ scopeId, initial }: { scopeId: string; initial: boolean }) {
     const [pending, start] = useTransition();
 
-    const dirty =
-      mode !== initialMode ||
-      ids.length !== initialSelected.length ||
-      ids.some((id) => !initialSelected.includes(id));
-
-    const save = () =>
+    const toggle = (enabled: boolean) =>
       start(async () => {
-        const r = await updateScopeVaults(teamId, scopeId, mode, ids);
+        const r = await updateScopeCredentials(teamId, scopeId, enabled);
         if ("error" in r) {
           message.error(r.error);
           return;
@@ -523,66 +494,20 @@ export function EditPublished({
         router.refresh();
       });
 
-    const options = allVaults.map((v) => ({ value: v.id, label: v.name }));
-
     return (
-      <Card title="Vaults">
-        <Typography.Paragraph type="secondary" className="!mt-0 !text-sm">
-          Which vaults the credential tools (<Typography.Text code>get_vaults</Typography.Text>,{" "}
-          <Typography.Text code>get_credentials</Typography.Text>,{" "}
-          <Typography.Text code>view_credential</Typography.Text>) expose on this bundle.
+      <Card title="Credentials">
+        <div className="flex items-center gap-3">
+          <Switch checked={initial} loading={pending} onChange={toggle} />
+          <span className="text-sm">Expose all team credentials</span>
+        </div>
+        <Typography.Paragraph type="secondary" className="!mb-0 !mt-2 !text-sm">
+          Agents read them through <Typography.Text code>list_api_credentials</Typography.Text> and{" "}
+          <Typography.Text code>get_api_credentials</Typography.Text>.
         </Typography.Paragraph>
-
-        {allVaults.length === 0 ? (
-          <Typography.Text type="secondary" className="!text-sm">
-            This team has no vaults yet.
-          </Typography.Text>
-        ) : (
-          <>
-            <Radio.Group
-              value={mode}
-              onChange={(e) => setMode(e.target.value as VaultMode)}
-              className="!mb-3 flex flex-col gap-1"
-            >
-              <Radio value="ALL">All vaults{ids.length > 0 && mode === "ALL" ? " (except the ones below)" : ""}</Radio>
-              <Radio value="LIST">Only the vaults I pick</Radio>
-            </Radio.Group>
-
-            <Select
-              mode="multiple"
-              value={ids}
-              onChange={setIds}
-              className="w-full"
-              placeholder={mode === "ALL" ? "Excluded vaults (optional)" : "Pick vaults to expose"}
-              options={options}
-              optionFilterProp="label"
-              suffixIcon={<LockOutlined />}
-            />
-            <Typography.Paragraph type="secondary" className="!mb-0 !mt-2 !text-xs">
-              {mode === "ALL"
-                ? "Every team vault is exposed. Any vault listed above is hidden from this bundle."
-                : "Only the vaults listed above are exposed."}
-            </Typography.Paragraph>
-
-            <div className="mt-3 flex gap-2">
-              <Button type="primary" loading={pending} disabled={!dirty} onClick={save}>
-                Save changes
-              </Button>
-              <Button
-                disabled={!dirty}
-                onClick={() => {
-                  setMode(initialMode);
-                  setIds(initialSelected);
-                }}
-              >
-                Cancel
-              </Button>
-            </div>
-          </>
-        )}
       </Card>
     );
   }
+
   function BotsCard({
     scopeId,
     allBots,
@@ -675,9 +600,9 @@ export function EditPublished({
     return (
       <Card title="Service Connections">
         <Typography.Paragraph type="secondary" className="!mt-0 !text-sm">
-          Nango connections add the <Typography.Text code>nango_list_connections</Typography.Text> and{" "}
-          <Typography.Text code>nango_get_credentials</Typography.Text> tools. They list the accounts of every
-          picked connection together.
+          Google and QuickBooks accounts agents can use through{" "}
+          <Typography.Text code>list_api_credentials</Typography.Text> and{" "}
+          <Typography.Text code>get_api_credentials</Typography.Text>. None are exposed unless you pick them.
         </Typography.Paragraph>
 
         {all.length === 0 ? (

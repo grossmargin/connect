@@ -7,10 +7,16 @@ import { requireUser } from "@/lib/server/session";
 import { userInTeam } from "@/lib/server/access";
 import { isUuid } from "@/lib/isomorphic/ids";
 import { slugify } from "@/lib/isomorphic/slug";
-import { serviceTypeDef } from "@/lib/isomorphic/serviceConnectionTypes";
-import { packServiceConfig, testServiceConnection, type ServiceTestResult } from "@/lib/server/serviceConnections";
+import {
+  connectionState,
+  selectionIsEmpty,
+  serviceTypeDef,
+  type Selection,
+} from "@/lib/isomorphic/serviceConnectionTypes";
+import { packServiceConfig, publicServiceConfig, updateServiceConfig } from "@/lib/server/serviceConnections";
+import { testServiceConnection, type ServiceTestResult } from "@/lib/server/serviceOAuth";
 
-type Input = { name: string; slug?: string; values: Record<string, string> };
+type Input = { name: string; slug?: string; selection: Selection };
 
 async function requireMember(teamId: string) {
   const user = await requireUser();
@@ -23,8 +29,15 @@ async function revalidate(teamId: string) {
   if (t) revalidatePath(`/${t.slug}/service-connections`);
 }
 
-function cleanSlug(input: Input): string {
-  return slugify(input.slug?.trim() || input.name);
+function selectionField(type: string): "products" | "scopes" {
+  return type === "quickbooks" ? "products" : "scopes";
+}
+
+function validate(type: string, input: Input): string | null {
+  if (!serviceTypeDef(type)) return `Unknown service type "${type}".`;
+  if (!input.name.trim()) return "Name is required.";
+  if (selectionIsEmpty(type, input.selection)) return "Pick at least one thing to connect.";
+  return null;
 }
 
 function saveError(e: unknown): { error: string } {
@@ -34,64 +47,62 @@ function saveError(e: unknown): { error: string } {
   return { error: e instanceof Error ? e.message : "Unexpected error" };
 }
 
-// Saves the connection, then tests it. The connection is kept when the test fails.
+// Saves the connection without tokens. The client then opens
+// /api/service-connections/<id>/connect to run the consent flow.
 export async function createServiceConnection(
   teamId: string,
   type: string,
   input: Input,
-): Promise<{ id: string; test: ServiceTestResult } | { error: string }> {
+): Promise<{ id: string } | { error: string }> {
   const user = await requireMember(teamId);
-  if (!serviceTypeDef(type)) return { error: `Unknown service type "${type}".` };
-  if (!input.name.trim()) return { error: "Name is required." };
-  const packed = packServiceConfig(type, input.values);
+  const invalid = validate(type, input);
+  if (invalid) return { error: invalid };
+  const packed = packServiceConfig(type, { [selectionField(type)]: input.selection });
   if ("error" in packed) return packed;
 
-  let conn;
   try {
-    conn = await prisma.serviceConnection.create({
+    const conn = await prisma.serviceConnection.create({
       data: {
         teamId,
         type,
         name: input.name.trim(),
-        slug: cleanSlug(input),
+        slug: slugify(input.slug?.trim() || input.name),
         config: packed.config,
         secrets: packed.secrets,
         createdById: user.id,
       },
     });
+    await revalidate(teamId);
+    return { id: conn.id };
   } catch (e) {
     return saveError(e);
   }
-  const test = await testServiceConnection(conn);
-  await revalidate(teamId);
-  return { id: conn.id, test };
 }
 
-// An empty secret field keeps the stored value.
+// Changing the selection keeps the current tokens; the connection then shows
+// "Needs reconnect" until the user grants the new scopes.
 export async function updateServiceConnection(
   teamId: string,
   id: string,
   input: Input,
-): Promise<{ test: ServiceTestResult } | { error: string }> {
+): Promise<{ needsReconnect: boolean } | { error: string }> {
   await requireMember(teamId);
   const prev = await prisma.serviceConnection.findFirst({ where: { id, teamId } });
   if (!prev) return { error: "not found" };
-  if (!input.name.trim()) return { error: "Name is required." };
-  const packed = packServiceConfig(prev.type, input.values, prev);
-  if ("error" in packed) return packed;
+  const invalid = validate(prev.type, input);
+  if (invalid) return { error: invalid };
 
-  let conn;
   try {
-    conn = await prisma.serviceConnection.update({
+    let conn = await prisma.serviceConnection.update({
       where: { id },
-      data: { name: input.name.trim(), slug: cleanSlug(input), config: packed.config, secrets: packed.secrets },
+      data: { name: input.name.trim(), slug: slugify(input.slug?.trim() || input.name) },
     });
+    conn = await updateServiceConfig(conn, { [selectionField(prev.type)]: input.selection });
+    await revalidate(teamId);
+    return { needsReconnect: connectionState(conn.type, publicServiceConfig(conn)) !== "CONNECTED" };
   } catch (e) {
     return saveError(e);
   }
-  const test = await testServiceConnection(conn);
-  await revalidate(teamId);
-  return { test };
 }
 
 export async function testServiceConnectionAction(

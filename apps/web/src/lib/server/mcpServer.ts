@@ -11,14 +11,7 @@ import {
   type Tool,
   type CallToolResult,
 } from "@modelcontextprotocol/sdk/types.js";
-import {
-  resolvePrincipal,
-  getVaults,
-  getCredentials,
-  viewCredential,
-  type Principal,
-  type VaultFilter,
-} from "@/lib/server/mcp";
+import { resolvePrincipal, type Principal, type VaultFilter } from "@/lib/server/mcp";
 import { connectionStatusReport } from "@/lib/server/mcpStatus";
 import { logMcpCall } from "@/lib/server/mcpLog";
 import { text, errorResult, resultText, headerValue } from "@/lib/server/mcpToolShared";
@@ -46,7 +39,7 @@ import {
 } from "@/lib/server/wrapperTools";
 import { BOT_TOOLS, BOT_TOOL_NAMES, runBotTool } from "@/lib/server/botTools";
 import { STATE_TOOLS, STATE_TOOL_NAMES, runStateTool } from "@/lib/server/stateTools";
-import { NANGO_TOOLS, NANGO_TOOL_NAMES, runNangoTool } from "@/lib/server/serviceTools";
+import { API_CREDENTIAL_TOOLS, API_CREDENTIAL_TOOL_NAMES, runApiCredentialTool } from "@/lib/server/apiCredentialTools";
 import { requestOrigin } from "@/lib/server/serverEnv";
 
 function principalFrom(extra: { authInfo?: AuthInfo }): Principal {
@@ -87,21 +80,6 @@ function callDetails(headers: Headers, err?: unknown, extra?: Record<string, unk
   };
 }
 
-const CREDENTIAL_TOOLS: Tool[] = [
-  { name: "get_vaults", description: "List vaults you can access.", inputSchema: { type: "object", properties: {} } },
-  {
-    name: "get_credentials",
-    description: "List credential metadata (name, description, type). Never returns secret content.",
-    inputSchema: { type: "object", properties: { vaultId: { type: "string", description: "Filter to one vault." } } },
-  },
-  {
-    name: "view_credential",
-    description: "Reveal one credential's decrypted secret content. This access is audited.",
-    inputSchema: { type: "object", properties: { credentialId: { type: "string" } }, required: ["credentialId"] },
-  },
-];
-const CREDENTIAL_NAMES = new Set(CREDENTIAL_TOOLS.map((t) => t.name));
-
 const STATUS_TOOL: Tool = {
   name: "mcps_connection_status",
   description:
@@ -131,31 +109,6 @@ function makeVerifyToken(teamScope?: string) {
   };
 }
 
-async function runCredentialTool(
-  p: Principal,
-  name: string,
-  args: Record<string, unknown>,
-  headers: Record<string, string | string[]> | undefined,
-  vaultFilter?: VaultFilter,
-): Promise<CallToolResult> {
-  if (name === "get_vaults") return json(await getVaults(p, vaultFilter));
-  if (name === "get_credentials")
-    return json(await getCredentials(p, args.vaultId as string | undefined, vaultFilter));
-  // view_credential — audited inside viewCredential.
-  const credentialId = String(args.credentialId ?? "");
-  if (!credentialId) return errorResult("credentialId is required.");
-  const cred = await viewCredential(
-    p,
-    credentialId,
-    {
-      ip: headerValue(headers, "x-forwarded-for") ?? null,
-      userAgent: headerValue(headers, "user-agent") ?? null,
-    },
-    vaultFilter,
-  );
-  return cred ? json(cred) : errorResult("Credential not found.");
-}
-
 // The MCP server for one Published MCP: the credential tools plus every tool
 // contributed by the endpoint's groups (tenanted) and individual connections,
 // plus composed wrappers (all slug-prefixed). Built per request so it reflects
@@ -179,15 +132,15 @@ export function buildMcpHandler(
 ) {
   const endpoint = opts.endpoint ?? "/";
   const vaultFilter = opts.vaultFilter;
-  // Only expose the credential tools when the bundle actually resolves to at
-  // least one vault (the team has vaults and the bundle's selection keeps some).
+  // Only expose the API credential tools when the bundle has something to list:
+  // at least one vault (after the bundle's selection) or service connection.
   const hasVaults = (vaultFilter?.allowedVaultIds.length ?? 0) > 0;
   // Bot tools only when the bundle exposes at least one bot.
   const botIds = opts.botIds ?? [];
   const hasBots = botIds.length > 0;
-  // Nango tools only when the bundle has at least one Nango service connection.
   const serviceConnections = opts.serviceConnections ?? [];
-  const hasNango = serviceConnections.some((c) => c.type === "nango");
+  const hasApiCredentials = hasVaults || serviceConnections.length > 0;
+  const apiCredentialSources = { vaultFilter: hasVaults ? vaultFilter : undefined, serviceConnections };
   // State tools on every bundle; state is kept per bundle.
   const scopeId = opts.scopeId;
   // The team this endpoint serves, autodetected from the route. Both the root
@@ -205,9 +158,8 @@ export function buildMcpHandler(
         const perWrapper = wrappers.map((w) => wrapperToolDefs(w));
         return {
           tools: [
-            ...(hasVaults ? CREDENTIAL_TOOLS : []),
+            ...(hasApiCredentials ? API_CREDENTIAL_TOOLS : []),
             ...(hasBots ? BOT_TOOLS : []),
-            ...(hasNango ? NANGO_TOOLS : []),
             ...(scopeId ? STATE_TOOLS : []),
             STATUS_TOOL,
             ...perGroup.flat(),
@@ -251,39 +203,9 @@ export function buildMcpHandler(
           }
         }
 
-        if (hasVaults && CREDENTIAL_NAMES.has(name)) {
+        if (hasApiCredentials && API_CREDENTIAL_TOOL_NAMES.has(name)) {
           try {
-            const result = await runCredentialTool(principal, name, args, headers, vaultFilter);
-            await logMcpCall(principal, {
-              source: "root",
-              teamId,
-              toolName: name,
-              args: name === "view_credential" ? { credentialId: args.credentialId } : args,
-              ok: !result.isError,
-              error: result.isError ? resultText(result) : null,
-              durationMs: Date.now() - started,
-              details: callDetails(headers, result.isError ? resultText(result) : undefined),
-            });
-            return result;
-          } catch (e) {
-            const msg = e instanceof Error ? e.message : "call failed";
-            await logMcpCall(principal, {
-              source: "root",
-              teamId,
-              toolName: name,
-              args,
-              ok: false,
-              error: msg,
-              durationMs: Date.now() - started,
-              details: callDetails(headers, e),
-            });
-            return errorResult(msg);
-          }
-        }
-
-        if (hasNango && NANGO_TOOL_NAMES.has(name)) {
-          try {
-            const result = await runNangoTool(serviceConnections, name, args, {
+            const result = await runApiCredentialTool(apiCredentialSources, name, args, {
               principal,
               ip: headerValue(headers, "x-forwarded-for") ?? null,
               userAgent: headerValue(headers, "user-agent") ?? null,

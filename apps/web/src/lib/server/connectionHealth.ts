@@ -5,7 +5,9 @@ import { readCredentials } from "@/lib/server/mcpCredentials";
 import { probeConn } from "@/lib/server/upstream";
 import type { ToolInfo } from "@/lib/server/mcpClient";
 import { fetchNangoToken, parseNangoRef } from "@/lib/server/nango";
-import { testServiceConnection } from "@/lib/server/serviceConnections";
+import { testServiceConnection } from "@/lib/server/serviceOAuth";
+import { publicServiceConfig } from "@/lib/server/serviceConnections";
+import { connectionState } from "@/lib/isomorphic/serviceConnectionTypes";
 
 // Live health checks for MCP connections, service connections and NANGO credentials. Used by the
 // hourly cron and the Connection Statuses page.
@@ -179,9 +181,12 @@ async function checkNango(cred: NangoCred): Promise<NangoHealth> {
   }
 }
 
-// Calls the service with the stored config. The result is saved on the row.
+// Refreshes the token. The result is saved on the row. Not connected yet: skipped.
 async function checkService(conn: ServiceConnection): Promise<ServiceHealth> {
   const base = { id: conn.id, name: conn.name, slug: conn.slug, type: conn.type };
+  if (connectionState(conn.type, publicServiceConfig(conn)) === "NOT_CONNECTED") {
+    return { ...base, status: "skipped", error: "Not connected", durationMs: 0 };
+  }
   const startedAt = Date.now();
   const r = await testServiceConnection(conn);
   const durationMs = Date.now() - startedAt;

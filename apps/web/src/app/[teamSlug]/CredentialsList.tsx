@@ -4,7 +4,9 @@ import { App, Button, Empty, Form, Input, List, Modal, Popconfirm, Select, Tag, 
 import { DeleteOutlined, EditOutlined, EyeOutlined, KeyOutlined, PlusOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { createCredential, updateCredential, revealCredential, deleteCredential } from "./actions";
+import { createCredential, updateCredential, revealCredential, deleteCredential } from "./credentialActions";
+import { Page, PageIntro } from "@/ui/components/Page";
+import { useCurrentTeam } from "@/ui/components/TeamContext";
 
 export type Cred = {
   id: string;
@@ -20,7 +22,7 @@ const TYPE_TAG: Record<Cred["type"], { color: string; label: string }> = {
   NANGO: { color: "green", label: "nango" },
 };
 
-export function CredentialsTab({ vaultId, credentials }: { vaultId: string; credentials: Cred[] }) {
+export function CredentialsList({ credentials }: { credentials: Cred[] }) {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<Cred | null>(null);
 
@@ -34,12 +36,16 @@ export function CredentialsTab({ vaultId, credentials }: { vaultId: string; cred
   };
 
   return (
-    <>
-      <div className="mb-3 flex justify-end">
-        <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-          New credential
-        </Button>
-      </div>
+    <Page breadcrumb={[{ title: "Credentials" }]}>
+      <PageIntro
+        title="Credentials"
+        description="API keys and other secrets agents can use through list_api_credentials and get_api_credentials. Stored encrypted."
+        action={
+          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+            New credential
+          </Button>
+        }
+      />
 
       {credentials.length === 0 ? (
         <Empty description="No credentials yet" />
@@ -64,13 +70,8 @@ export function CredentialsTab({ vaultId, credentials }: { vaultId: string; cred
         />
       )}
 
-      <CredentialEditor
-        vaultId={vaultId}
-        cred={editing}
-        open={editorOpen}
-        onClose={() => setEditorOpen(false)}
-      />
-    </>
+      <CredentialEditor cred={editing} open={editorOpen} onClose={() => setEditorOpen(false)} />
+    </Page>
   );
 }
 
@@ -141,18 +142,17 @@ function DeleteButton({ cred }: { cred: Cred }) {
 }
 
 function CredentialEditor({
-  vaultId,
   cred,
   open,
   onClose,
 }: {
-  vaultId: string;
   cred: Cred | null;
   open: boolean;
   onClose: () => void;
 }) {
   const { message } = App.useApp();
   const router = useRouter();
+  const { teamId } = useCurrentTeam();
   const [form] = Form.useForm();
   const [pending, start] = useTransition();
 
@@ -173,7 +173,7 @@ function CredentialEditor({
           fd.set("value", v.value ?? "");
         }
         if (cred) await updateCredential(cred.id, fd);
-        else await createCredential(vaultId, fd);
+        else await createCredential(teamId, fd);
         message.success(cred ? "Saved" : "Created");
         onClose();
         router.refresh();

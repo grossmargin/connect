@@ -1,14 +1,11 @@
 import { expect, test, beforeAll, mock } from "bun:test";
 import { randomBytes } from "crypto";
 
-// Stub the Next.js build guard and the modules that reach the DB or network.
+// Stub the Next.js build guard and the DB.
 mock.module("server-only", () => ({}));
 mock.module("@/lib/server/db", () => ({ prisma: {} }));
-mock.module("@/lib/server/serviceNango", () => ({ listNangoConnections: () => [], getNangoCredentials: () => ({}) }));
-mock.module("@/lib/server/audit", () => ({ audit: () => {} }));
-mock.module("@/lib/server/mcp", () => ({ principalActor: () => ({}) }));
 const { packServiceConfig, readServiceConfig, publicServiceConfig } = await import("./serviceConnections");
-const { parseNangoConnectionKey, nangoConnectionKey } = await import("./serviceTools");
+const types = await import("@/lib/isomorphic/serviceConnectionTypes");
 
 beforeAll(() => {
   process.env.ENCRYPTION_KEY = randomBytes(32).toString("base64");
@@ -19,35 +16,62 @@ function row(type: string, packed: ReturnType<typeof packServiceConfig>) {
   return { type, config: packed.config, secrets: packed.secrets };
 }
 
-test("splits secret fields into encrypted secrets and joins them on read", () => {
-  const conn = row("nango", packServiceConfig("nango", { host: "https://nango.example.com/", secretKey: "sk-1" }));
-  expect(conn.config).toEqual({ host: "https://nango.example.com" });
-  expect(Buffer.from(conn.secrets).toString("utf8")).not.toContain("sk-1");
-  expect(publicServiceConfig(conn)).toEqual({ host: "https://nango.example.com" });
-  expect(readServiceConfig(conn)).toEqual({ host: "https://nango.example.com", secretKey: "sk-1" });
+test("token fields go to encrypted secrets and are joined on read", () => {
+  const conn = row(
+    "google-services",
+    packServiceConfig("google-services", {
+      scopes: { drive: "readonly" },
+      granted: { drive: "readonly" },
+      email: "a@b.c",
+      accessToken: "at-1",
+      refreshToken: "rt-1",
+      expiresAt: 123,
+    }),
+  );
+  expect(publicServiceConfig(conn)).toEqual({ scopes: { drive: "readonly" }, granted: { drive: "readonly" }, email: "a@b.c" });
+  expect(Buffer.from(conn.secrets).toString("utf8")).not.toContain("rt-1");
+  expect(readServiceConfig(conn)).toMatchObject({ accessToken: "at-1", refreshToken: "rt-1", expiresAt: 123 });
 });
 
-test("defaults the Nango host", () => {
-  const conn = row("nango", packServiceConfig("nango", { host: "", secretKey: "sk-1" }));
-  expect(conn.config).toEqual({ host: "https://api.nango.dev" });
+test("rejects bad values and unknown types", () => {
+  expect(packServiceConfig("google-services", { scopes: { drive: "admin" } })).toHaveProperty("error");
+  expect(packServiceConfig("nango", {})).toHaveProperty("error");
 });
 
-test("an empty secret on edit keeps the stored value", () => {
-  const prev = row("nango", packServiceConfig("nango", { secretKey: "sk-1" }));
-  const next = row("nango", packServiceConfig("nango", { host: "https://h.example.com", secretKey: "" }, prev));
-  expect(readServiceConfig(next)).toEqual({ host: "https://h.example.com", secretKey: "sk-1" });
+test("scopes follow the selection", () => {
+  expect(types.scopesFor("google-services", { drive: "readonly" })).toEqual([
+    "openid",
+    "email",
+    "https://www.googleapis.com/auth/drive.readonly",
+  ]);
+  expect(types.scopesFor("google-services", { drive: "readwrite" })).toContain("https://www.googleapis.com/auth/drive");
+  expect(types.scopesFor("quickbooks", { accounting: true, payments: false })).toEqual(["com.intuit.quickbooks.accounting"]);
+  expect(types.scopesFor("google-services", { drive: "none", gmail: "readwrite" })).toEqual([
+    "openid",
+    "email",
+    "https://www.googleapis.com/auth/gmail.modify",
+  ]);
+  expect(types.selectionIsEmpty("google-services", { drive: "none" })).toBe(true);
+  expect(types.selectionIsEmpty("quickbooks", {})).toBe(true);
 });
 
-test("rejects a missing secret and an unknown type", () => {
-  expect(packServiceConfig("nango", { host: "https://h.example.com" })).toHaveProperty("error");
-  expect(packServiceConfig("nope", {})).toHaveProperty("error");
+test("connection state: not connected, connected, needs reconnect", () => {
+  expect(types.connectionState("google-services", { scopes: { drive: "readonly" } })).toBe("NOT_CONNECTED");
+  expect(types.connectionState("google-services", { scopes: { drive: "readonly" }, granted: { drive: "readonly" } })).toBe(
+    "CONNECTED",
+  );
+  expect(
+    types.connectionState("google-services", { scopes: { drive: "readwrite" }, granted: { drive: "readonly" } }),
+  ).toBe("NEEDS_RECONNECT");
+  expect(types.connectionState("quickbooks", { products: { accounting: true }, granted: { accounting: true, payments: false } })).toBe(
+    "CONNECTED",
+  );
 });
 
-test("connection_id round-trips, splitting on the first two colons", () => {
-  const key = nangoConnectionKey("prod", "quickbooks", "user:42");
-  expect(key).toBe("prod:quickbooks:user:42");
-  expect(parseNangoConnectionKey(key)).toEqual({ slug: "prod", providerConfigKey: "quickbooks", connectionId: "user:42" });
-  for (const bad of ["", "prod", "prod:qb", "prod:qb:", ":qb:1", "prod::1", 42]) {
-    expect(parseNangoConnectionKey(bad)).toBeNull();
-  }
+test("selection label", () => {
+  expect(types.selectionLabel("google-services", { drive: "readonly" })).toBe("Drive (read-only)");
+  expect(types.selectionLabel("google-services", { drive: "readonly", gmail: "readwrite" })).toBe(
+    "Drive (read-only), Gmail (read-write)",
+  );
+  expect(types.selectionLabel("quickbooks", { accounting: true, payments: true })).toBe("Accounting, Payments");
 });

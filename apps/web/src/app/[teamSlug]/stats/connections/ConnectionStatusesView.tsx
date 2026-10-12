@@ -87,11 +87,11 @@ export function ConnectionStatusesView({ teamSlug, health }: { teamSlug: string;
       dataIndex: "name",
       render: (name: string, row) => (
         <div className="leading-tight">
-          <Link href={`/${teamSlug}/vaults/${row.vaultId}`} className="font-medium">
+          <Link href={`/${teamSlug}`} className="font-medium">
             {name}
           </Link>
           <div className="text-xs text-gray-400">
-            {row.vaultName} · {row.providerConfigKey ?? "?"} / {row.connectionId ?? "?"}
+            {row.providerConfigKey ?? "?"} / {row.connectionId ?? "?"}
           </div>
         </div>
       ),

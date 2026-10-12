@@ -1,9 +1,10 @@
-export type Tone = "success" | "processing" | "default" | "error";
+export type Tone = "success" | "processing" | "default" | "warning" | "error";
 
 const TONE: Record<Tone, { pill: string; dot: string }> = {
   success: { pill: "bg-green-50 text-green-700", dot: "bg-green-500" },
   processing: { pill: "bg-blue-50 text-blue-700", dot: "bg-blue-500" },
   default: { pill: "bg-gray-100 text-gray-500", dot: "bg-gray-400" },
+  warning: { pill: "bg-amber-50 text-amber-700", dot: "bg-amber-500" },
   error: { pill: "bg-red-50 text-red-700", dot: "bg-red-500" },
 };
 

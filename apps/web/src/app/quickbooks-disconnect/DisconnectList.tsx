@@ -45,7 +45,6 @@ export function DisconnectList({ rows: initial }: { rows: QbRow[] }) {
       render: (_, row) => (
         <div className="leading-tight">
           <div className="font-medium text-gray-900">{row.name}</div>
-          <div className="text-xs text-gray-400">{row.vaultName}</div>
         </div>
       ),
     },

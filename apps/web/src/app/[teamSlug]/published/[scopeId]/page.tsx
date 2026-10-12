@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/server/db";
 import { requireTeam } from "@/lib/server/team";
 import { listStates } from "@/lib/server/stateTools";
-import { EditPublished, type BotOption, type ConnOption, type ServiceOption, type GroupData, type VaultOption } from "./EditPublished";
+import { EditPublished, type BotOption, type ConnOption, type ServiceOption, type GroupData } from "./EditPublished";
+import { exposesCredentials } from "@/lib/server/scopes";
 
 export default async function EditPublishedMcpPage({
   params,
@@ -33,12 +34,6 @@ export default async function EditPublishedMcpPage({
     select: { id: true, name: true, slug: true },
   });
 
-  const allVaults = await prisma.vault.findMany({
-    where: { teamId: team.id },
-    orderBy: { name: "asc" },
-    select: { id: true, name: true },
-  });
-
   const allBots = await prisma.bot.findMany({
     where: { teamId: team.id },
     orderBy: { name: "asc" },
@@ -66,9 +61,7 @@ export default async function EditPublishedMcpPage({
       memberConnectionIds={scope.connections.map((c) => c.id)}
       groups={groups}
       allConnections={allConnections as ConnOption[]}
-      allVaults={allVaults as VaultOption[]}
-      vaultMode={scope.vaultMode === "LIST" ? "LIST" : "ALL"}
-      selectedVaultIds={scope.vaults.map((v) => v.id)}
+      exposeCredentials={exposesCredentials(scope)}
       allBots={allBots as BotOption[]}
       selectedBotIds={scope.bots.map((b) => b.id)}
       allServiceConnections={allServiceConnections as ServiceOption[]}

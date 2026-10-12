@@ -19,6 +19,12 @@ const schema = z.object({
   AUTH_GOOGLE_ID: z.string().optional(),
   AUTH_GOOGLE_SECRET: z.string().optional(),
   AUTH_ALLOWED_DOMAINS: z.string().optional(),
+  // OAuth apps for service connections. Google falls back to AUTH_GOOGLE_*.
+  GOOGLE_SERVICES_CLIENT_ID: z.string().optional(),
+  GOOGLE_SERVICES_CLIENT_SECRET: z.string().optional(),
+  QUICKBOOKS_CLIENT_ID: z.string().optional(),
+  QUICKBOOKS_CLIENT_SECRET: z.string().optional(),
+  QUICKBOOKS_ENVIRONMENT: z.enum(["sandbox", "production"]).optional(),
   NANGO_SECRET_KEY: z.string().optional(),
   NANGO_HOST: z.string().optional(),
   NANGO_NOTION_CONNECTION_ID: z.string().optional(),
